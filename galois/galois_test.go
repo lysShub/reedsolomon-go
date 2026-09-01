@@ -1,10 +1,9 @@
 package galois
 
 import (
+	"bytes"
 	"crypto/rand"
 	"testing"
-
-	"github.com/stretchr/testify/require"
 )
 
 var testSize = []int{
@@ -17,7 +16,9 @@ func Test_Mul(t *testing.T) {
 	rand.Read(d)
 	for _, a := range d {
 		for _, b := range d {
-			require.Equal(t, Mul(a, b), Mul(a, b))
+			if Mul(a, b) != Mul(a, b) {
+				t.Fatalf("a=%d b=%d", a, b)
+			}
 		}
 	}
 }
@@ -35,9 +36,13 @@ func Test_MulVect(t *testing.T) {
 
 		MulVect(c, in, out)
 
-		require.Equal(t, exp, out)
+		if !bytes.Equal(exp, out) {
+			t.Fatalf("n=%d mismatch", n)
+		}
 		if n > 0 {
-			require.Equal(t, Mul(c, in[0]), out[0])
+			if Mul(c, in[0]) != out[0] {
+				t.Fatalf("n=%d mismatch", n)
+			}
 		}
 	}
 }
@@ -61,9 +66,13 @@ func Test_MulXorVect(t *testing.T) {
 
 		MulXorVect(c, in, out)
 
-		require.Equal(t, exp, out)
+		if !bytes.Equal(exp, out) {
+			t.Fatalf("n=%d mismatch", n)
+		}
 		if n > 0 {
-			require.Equal(t, Mul(c, in[0])^o0, out[0])
+			if Mul(c, in[0])^o0 != out[0] {
+				t.Fatalf("n=%d mismatch", n)
+			}
 		}
 	}
 }
@@ -82,21 +91,29 @@ func Test_xorVect(t *testing.T) {
 
 		XorVect(in, out)
 
-		require.Equal(t, exp, out)
+		if !bytes.Equal(exp, out) {
+			t.Fatalf("n=%d mismatch", n)
+		}
 	}
 }
 
 func Test_lastIndex(t *testing.T) {
-	require.Equal(t, -1, LastIndex(nil, 0xff))
+	if LastIndex(nil, 0xff) != -1 {
+		t.Fatalf("LastIndex(nil) != -1")
+	}
 
 	for n := 0; n <= 0xff; n++ {
 		for i := 0; i < +1; i++ {
 			s := make([]byte, n)
 			if i < len(s) {
 				s[i] = 0xff
-				require.Equal(t, i, LastIndex(s, 0xff))
+				if LastIndex(s, 0xff) != i {
+					t.Fatalf("n=%d i=%d", n, i)
+				}
 			} else {
-				require.Equal(t, -1, LastIndex(s, 0xff))
+				if LastIndex(s, 0xff) != -1 {
+					t.Fatalf("n=%d i=%d", n, i)
+				}
 			}
 		}
 	}

@@ -4,11 +4,11 @@
 package galois
 
 import (
+	"bytes"
 	"crypto/rand"
 	"fmt"
 	"testing"
 
-	"github.com/stretchr/testify/require"
 	"golang.org/x/sys/cpu"
 )
 
@@ -27,7 +27,9 @@ func Test_Base(t *testing.T) {
 				oGfni := make([]byte, n)
 				mulVect_go(byte(c), i, oGo)
 				mulVect_gfni(byte(c), i, oGfni)
-				require.Equal(t, oGo, oGfni, "c=%d n=%d", c, n)
+				if !bytes.Equal(oGo, oGfni) {
+					t.Fatalf("c=%d n=%d", c, n)
+				}
 			}
 		}
 	})
@@ -44,7 +46,9 @@ func Test_Base(t *testing.T) {
 				copy(oGfni, o)
 				mulXorVect_go(byte(c), i, oGo)
 				mulXorVect_gfni(byte(c), i, oGfni)
-				require.Equal(t, oGo, oGfni, "c=%d n=%d", c, n)
+				if !bytes.Equal(oGo, oGfni) {
+					t.Fatalf("c=%d n=%d", c, n)
+				}
 			}
 		}
 	})

@@ -4,8 +4,6 @@ import (
 	"testing"
 
 	"github.com/lysShub/bytespool-go"
-
-	"github.com/stretchr/testify/require"
 )
 
 func Test_Encodec(t *testing.T) {
@@ -16,14 +14,18 @@ func Test_Encodec(t *testing.T) {
 [  9,  8,  9,  8,  1]
 [ 15, 14, 14, 15,  1]`
 
-	require.Equal(t, exp1, act1)
+	if act1 != exp1 {
+		t.Fatalf("act1 mismatch:\n%s", act1)
+	}
 
 	m2 := Encodec(8, 5, []uint8{0, 2, 4, 5, 6}...)
 	act2 := Matrix(m2).String()
 	exp2 := `[ 71, 70, 71,  1, 70]
 [174,175,175,  1,174]`
 
-	require.Equal(t, exp2, act2)
+	if act2 != exp2 {
+		t.Fatalf("act2 mismatch:\n%s", act2)
+	}
 }
 
 func Test_bytespool(t *testing.T) {
@@ -44,7 +46,9 @@ func Test_bytespool(t *testing.T) {
 	for _, e := range ms {
 		e.Release()
 	}
-	require.Zero(t, bytespool.DebugLength())
+	if n := bytespool.DebugLength(); n != 0 {
+		t.Fatalf("DebugLength = %d, want 0", n)
+	}
 }
 func combination[T uint8 | int](n, m T) [][]T {
 	var result [][]T

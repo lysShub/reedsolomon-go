@@ -1,9 +1,9 @@
 package encodec
 
 import (
-	"acceler/pkg/debug"
-	"acceler/pkg/reedsolomon/galois"
 	"slices"
+
+	"github.com/lysShub/reedsolomon-go/galois"
 
 	"github.com/lysShub/bytespool-go"
 )
@@ -18,10 +18,10 @@ type Matrix struct {
 }
 
 func Make(rows, cols int) Matrix {
-	if debug.Debug() {
-		debug.Greater(rows, 0)
-		debug.Greater(cols, 0)
-	}
+	// if debug.Debug() {
+	// 	debug.Greater(rows, 0)
+	// 	debug.Greater(cols, 0)
+	// }
 	return Matrix{
 		b:    Pooler.Get(rows * cols),
 		rows: rows,
@@ -33,10 +33,10 @@ func (m Matrix) Rows() int   { return m.rows }
 func (m Matrix) Cols() int   { return m.cols }
 func (m Matrix) Len() int    { return len(m.b) }
 func (m Matrix) Row(i int) []byte {
-	if debug.Debug() {
-		debug.GreaterOrEqual(i, 0)
-		debug.Less(i, m.rows)
-	}
+	// if debug.Debug() {
+	// 	debug.GreaterOrEqual(i, 0)
+	// 	debug.Less(i, m.rows)
+	// }
 	return m.b[i*m.cols : (i+1)*m.cols]
 }
 func (m *Matrix) Release() {
@@ -70,10 +70,10 @@ func (m *Matrix) delRows(idxs ...int) {
 	if len(idxs) == 0 {
 		return
 	}
-	if debug.Debug() {
-		debug.Equal(len(m.b), m.rows*m.cols)
-		debug.LessOrEqual(len(idxs), m.rows)
-	}
+	// if debug.Debug() {
+	// 	debug.Equal(len(m.b), m.rows*m.cols)
+	// 	debug.LessOrEqual(len(idxs), m.rows)
+	// }
 
 	n, w := m.cols, 0
 	for r := 0; r < m.rows; r++ {
@@ -90,12 +90,12 @@ func (m *Matrix) delRows(idxs ...int) {
 }
 
 func (m *Matrix) swapRow(r1, r2 int) {
-	if debug.Debug() {
-		debug.GreaterOrEqual(r1, 0)
-		debug.Less(r1, m.rows)
-		debug.GreaterOrEqual(r2, 0)
-		debug.Less(r2, m.rows)
-	}
+	// if debug.Debug() {
+	// 	debug.GreaterOrEqual(r1, 0)
+	// 	debug.Less(r1, m.rows)
+	// 	debug.GreaterOrEqual(r2, 0)
+	// 	debug.Less(r2, m.rows)
+	// }
 	if r1 == r2 {
 		return
 	}
@@ -106,9 +106,9 @@ func (m *Matrix) swapRow(r1, r2 int) {
 }
 
 func (m Matrix) sub(rmin, cmin, rmax, cmax int) Matrix {
-	if debug.Debug() {
-		debug.Equal(len(m.b), m.rows*m.cols)
-	}
+	// if debug.Debug() {
+	// 	debug.Equal(len(m.b), m.rows*m.cols)
+	// }
 	res := Make(rmax-rmin, cmax-cmin)
 	for ri := rmin; ri < rmax; ri++ {
 		copy(res.Row(ri-rmin), m.Row(ri)[cmin:cmax])
@@ -117,11 +117,11 @@ func (m Matrix) sub(rmin, cmin, rmax, cmax int) Matrix {
 }
 
 func (m Matrix) mul(right Matrix) Matrix {
-	if debug.Debug() {
-		debug.Equal(len(m.b), m.rows*m.cols)
-		debug.Equal(len(right.b), right.rows*right.cols)
-		debug.Equal(m.cols, right.rows)
-	}
+	// if debug.Debug() {
+	// 	debug.Equal(len(m.b), m.rows*m.cols)
+	// 	debug.Equal(len(right.b), right.rows*right.cols)
+	// 	debug.Equal(m.cols, right.rows)
+	// }
 	res := Make(m.rows, right.cols)
 	for r := 0; r < m.rows; r++ {
 		for c := 0; c < right.cols; c++ {
@@ -133,10 +133,10 @@ func (m Matrix) mul(right Matrix) Matrix {
 
 // mulColSum add(s * m.col[i])
 func (m Matrix) mulColSum(s []byte, i int) (sum byte) {
-	if debug.Debug() {
-		debug.Equal(len(s), m.rows)
-		debug.Less(i, m.cols)
-	}
+	// if debug.Debug() {
+	// 	debug.Equal(len(s), m.rows)
+	// 	debug.Less(i, m.cols)
+	// }
 	for j, e := range s {
 		v := galois.Mul(e, m.b[j*m.cols+i])
 		sum = galois.Add(sum, v)
@@ -146,10 +146,10 @@ func (m Matrix) mulColSum(s []byte, i int) (sum byte) {
 
 // invert 求取逆矩阵
 func (m Matrix) invert() Matrix {
-	if debug.Debug() {
-		debug.Equal(len(m.b), m.rows*m.cols)
-		debug.Equal(m.rows, m.cols, "require square matrix")
-	}
+	// if debug.Debug() {
+	// 	debug.Equal(len(m.b), m.rows*m.cols)
+	// 	debug.Equal(m.rows, m.cols, "require square matrix")
+	// }
 
 	n := m.rows
 	// work: [m E]  在m右侧拼接一个单位矩阵
@@ -173,9 +173,9 @@ func (m Matrix) invert() Matrix {
 
 // gaussianElimination 高斯消元(原地)
 func (m *Matrix) gaussianElimination() {
-	if debug.Debug() {
-		debug.Equal(len(m.b), m.rows*m.cols)
-	}
+	// if debug.Debug() {
+	// 	debug.Equal(len(m.b), m.rows*m.cols)
+	// }
 	cols := m.cols
 	for r := 0; r < m.rows; r++ {
 		row := m.Row(r)

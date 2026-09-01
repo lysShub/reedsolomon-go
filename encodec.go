@@ -1,15 +1,15 @@
 package reedsolomon
 
 import (
-	"acceler/pkg/reedsolomon/encodec"
-	"acceler/pkg/tea"
 	"strings"
 	"sync"
 	"sync/atomic"
 	"unsafe"
+
+	"github.com/lysShub/reedsolomon-go/encodec"
 )
 
-var Cache = newCache(tea.Mi * 8)
+var Cache = newCache((1024 * 1024) * 8)
 
 type cache struct {
 	limit int           // cache size limit
@@ -20,7 +20,7 @@ type cache struct {
 }
 
 func newCache(cacheSize int) *cache {
-	if cacheSize < tea.Ki {
+	if cacheSize < 1024 {
 		panic(cacheSize)
 	}
 	return &cache{

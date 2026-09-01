@@ -1,17 +1,24 @@
 package reedsolomon
 
 import (
+	"math"
 	"math/rand"
 	"testing"
-
-	"github.com/stretchr/testify/require"
 )
 
 func Test_ReedsolomonPL(t *testing.T) {
-	require.Equal(t, 0.0, ReedsolomonPL(8, 4, -1))
-	require.Equal(t, 0.0, ReedsolomonPL(8, 4, 0))
-	require.Equal(t, 1.0, ReedsolomonPL(8, 4, 1))
-	require.Equal(t, 1.0, ReedsolomonPL(8, 4, 1.1))
+	if act := ReedsolomonPL(8, 4, -1); act != 0.0 {
+		t.Fatalf("act = %v, want 0.0", act)
+	}
+	if act := ReedsolomonPL(8, 4, 0); act != 0.0 {
+		t.Fatalf("act = %v, want 0.0", act)
+	}
+	if act := ReedsolomonPL(8, 4, 1); act != 1.0 {
+		t.Fatalf("act = %v, want 1.0", act)
+	}
+	if act := ReedsolomonPL(8, 4, 1.1); act != 1.0 {
+		t.Fatalf("act = %v, want 1.0", act)
+	}
 
 	for groupsize := 2; groupsize < 8; groupsize++ {
 		for paritysize := 1; paritysize < groupsize; paritysize++ {
@@ -19,7 +26,9 @@ func Test_ReedsolomonPL(t *testing.T) {
 
 				act := ReedsolomonPL(groupsize, groupsize-paritysize, pl)
 				exp := mock(groupsize, paritysize, pl)
-				require.InDelta(t, exp, act, 0.005)
+				if math.Abs(exp-act) > 0.005 {
+					t.Fatalf("exp = %v, act = %v", exp, act)
+				}
 
 			}
 		}

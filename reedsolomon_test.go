@@ -1,13 +1,12 @@
 package reedsolomon_test
 
 import (
-	"acceler/pkg/reedsolomon"
 	"bytes"
 	"crypto/rand"
 	"slices"
 	"testing"
 
-	"github.com/stretchr/testify/require"
+	"github.com/lysShub/reedsolomon-go"
 )
 
 func makes(rows, cols int) (v [][]byte) {
@@ -46,8 +45,12 @@ func Test_Base(t *testing.T) {
 		{ // 恢复
 			var reconst = makes(1, len(datas[0]))
 			n := reedsolomon.Reconst(para, blocks, []uint8{0, 2}, reconst)
-			require.Equal(t, 1, n)
-			require.Equal(t, datas[1], reconst[0])
+			if n != 1 {
+				t.Fatalf("n = %d, want 1", n)
+			}
+			if !bytes.Equal(datas[1], reconst[0]) {
+				t.Fatalf("reconst mismatch")
+			}
 		}
 	})
 
@@ -72,8 +75,12 @@ func Test_Base(t *testing.T) {
 		{ // 恢复
 			var reconst = makes(1, len(datas[0]))
 			n := reedsolomon.Reconst(para, blocks, []uint8{1, 2, 3, 4}, reconst)
-			require.Equal(t, 1, n)
-			require.Equal(t, datas[1], reconst[0])
+			if n != 1 {
+				t.Fatalf("n = %d, want 1", n)
+			}
+			if !bytes.Equal(datas[1], reconst[0]) {
+				t.Fatalf("reconst mismatch")
+			}
 		}
 	})
 
@@ -98,8 +105,12 @@ func Test_Base(t *testing.T) {
 		{ // 恢复
 			var reconst = makes(1, len(datas[0]))
 			n := reedsolomon.Reconst(para, blocks, []uint8{0, 2, 4}, reconst)
-			require.Equal(t, 1, n)
-			require.Equal(t, datas[1], reconst[0])
+			if n != 1 {
+				t.Fatalf("n = %d, want 1", n)
+			}
+			if !bytes.Equal(datas[1], reconst[0]) {
+				t.Fatalf("reconst mismatch")
+			}
 		}
 	})
 
@@ -124,7 +135,9 @@ func Test_Base(t *testing.T) {
 		{ // 恢复
 			var reconst = makes(1, len(datas[0]))
 			n := reedsolomon.Reconst(para, blocks, []uint8{0, 1, 2}, reconst)
-			require.Zero(t, n)
+			if n != 0 {
+				t.Fatalf("n = %d, want 0", n)
+			}
 		}
 	})
 
@@ -146,8 +159,12 @@ func Test_Base(t *testing.T) {
 		{ // 恢复
 			var reconst = makes(1, len(datas[0]))
 			n := reedsolomon.Reconst(para, blocks, []uint8{1}, reconst)
-			require.Zero(t, 0, n)
-			require.Equal(t, datas[0], reconst[0])
+			if n != 0 {
+				t.Fatalf("n = %d, want 0", n)
+			}
+			if !bytes.Equal(datas[0], reconst[0]) {
+				t.Fatalf("reconst mismatch")
+			}
 		}
 	})
 }
@@ -188,8 +205,12 @@ func Test_NotAlign(t *testing.T) {
 		{
 			var reconst = makes(0xff, 0xff)
 			n := reedsolomon.Reconst(para, blocks, []uint8{0, 2}, reconst)
-			require.Equal(t, 1, n)
-			require.True(t, bytes.HasPrefix(reconst[0], datas[1]))
+			if n != 1 {
+				t.Fatalf("n = %d, want 1", n)
+			}
+			if !bytes.HasPrefix(reconst[0], datas[1]) {
+				t.Fatalf("reconst mismatch")
+			}
 		}
 	})
 
@@ -211,8 +232,12 @@ func Test_NotAlign(t *testing.T) {
 		{
 			var reconst = makes(1, len(datas[0]))
 			n := reedsolomon.Reconst(para, blocks, []uint8{1, 2}, reconst)
-			require.Equal(t, 1, n)
-			require.True(t, bytes.HasPrefix(reconst[0], datas[0]))
+			if n != 1 {
+				t.Fatalf("n = %d, want 1", n)
+			}
+			if !bytes.HasPrefix(reconst[0], datas[0]) {
+				t.Fatalf("reconst mismatch")
+			}
 		}
 	})
 
@@ -251,8 +276,12 @@ func Test_NotAlign(t *testing.T) {
 			}
 
 			n := reedsolomon.Reconst(para, blocks, []uint8{0, 2}, reconst)
-			require.Equal(t, 1, n)
-			require.True(t, bytes.HasPrefix(reconst[0], datas[1]))
+			if n != 1 {
+				t.Fatalf("n = %d, want 1", n)
+			}
+			if !bytes.HasPrefix(reconst[0], datas[1]) {
+				t.Fatalf("reconst mismatch")
+			}
 		}
 	})
 

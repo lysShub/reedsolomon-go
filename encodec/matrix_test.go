@@ -1,14 +1,13 @@
 package encodec
 
 import (
+	"bytes"
 	"crypto/rand"
 	"strconv"
 	"strings"
 	"testing"
 
 	"github.com/lysShub/bytespool-go"
-
-	"github.com/stretchr/testify/require"
 )
 
 func fromRows(rows [][]byte) Matrix {
@@ -55,7 +54,9 @@ func Test_Matrix(t *testing.T) {
 		defer m.Release()
 		m.delRows(0)
 
-		require.Equal(t, "[152,  2,  3]", m.String())
+		if got := m.String(); got != "[152,  2,  3]" {
+			t.Fatalf("mismatch:\n%s", got)
+		}
 	})
 
 	t.Run("String", func(t *testing.T) {
@@ -64,7 +65,9 @@ func Test_Matrix(t *testing.T) {
 			{152, 2, 3},
 		})
 		defer m.Release()
-		require.Equal(t, "[  0,115,255]\n[152,  2,  3]", m.String())
+		if got := m.String(); got != "[  0,115,255]\n[152,  2,  3]" {
+			t.Fatalf("mismatch:\n%s", got)
+		}
 	})
 
 	t.Run("mul", func(t *testing.T) {
@@ -82,7 +85,9 @@ func Test_Matrix(t *testing.T) {
 
 		r := m1.mul(m2)
 		defer r.Release()
-		require.Equal(t, "[209,157]\n[134,191]", r.String())
+		if got := r.String(); got != "[209,157]\n[134,191]" {
+			t.Fatalf("mismatch:\n%s", got)
+		}
 	})
 
 	t.Run("invert", func(t *testing.T) {
@@ -95,7 +100,9 @@ func Test_Matrix(t *testing.T) {
 
 		inv := m1.invert()
 		defer inv.Release()
-		require.Equal(t, "[172, 26, 17]\n[104, 44,209]\n[126,130,215]", inv.String())
+		if got := inv.String(); got != "[172, 26, 17]\n[104, 44,209]\n[126,130,215]" {
+			t.Fatalf("mismatch:\n%s", got)
+		}
 	})
 
 	t.Run("sub", func(t *testing.T) {
@@ -108,17 +115,23 @@ func Test_Matrix(t *testing.T) {
 
 		m1 := m.sub(1, 1, 2, 2)
 		defer m1.Release()
-		require.Equal(t, "[112]", m1.String())
+		if got := m1.String(); got != "[112]" {
+			t.Fatalf("mismatch:\n%s", got)
+		}
 
 		m2 := m.sub(1, 1, 3, 3)
 		defer m2.Release()
-		require.Equal(t, "[112,  3]\n[  1,177]", m2.String())
+		if got := m2.String(); got != "[112,  3]\n[  1,177]" {
+			t.Fatalf("mismatch:\n%s", got)
+		}
 	})
 
 	t.Run("swapRow", func(t *testing.T) {
 		bytespool.DebugClear()
 		defer func() {
-			require.Zero(t, bytespool.DebugLength())
+			if n := bytespool.DebugLength(); n != 0 {
+				t.Fatalf("DebugLength = %d, want 0", n)
+			}
 		}()
 
 		m := Make(2, 2)
@@ -130,14 +143,20 @@ func Test_Matrix(t *testing.T) {
 
 		m.swapRow(0, 1)
 
-		require.Equal(t, bak.Row(1), m.Row(0))
-		require.Equal(t, bak.Row(0), m.Row(1))
+		if !bytes.Equal(bak.Row(1), m.Row(0)) {
+			t.Fatalf("Row(0) mismatch")
+		}
+		if !bytes.Equal(bak.Row(0), m.Row(1)) {
+			t.Fatalf("Row(1) mismatch")
+		}
 	})
 
 	t.Run("delRows 2", func(t *testing.T) {
 		bytespool.DebugClear()
 		defer func() {
-			require.Zero(t, bytespool.DebugLength())
+			if n := bytespool.DebugLength(); n != 0 {
+				t.Fatalf("DebugLength = %d, want 0", n)
+			}
 		}()
 
 		m := Make(2, 2)
@@ -149,14 +168,20 @@ func Test_Matrix(t *testing.T) {
 
 		m.delRows(0)
 
-		require.Equal(t, 1, m.Rows())
-		require.Equal(t, bak.Row(1), m.Row(0))
+		if n := m.Rows(); n != 1 {
+			t.Fatalf("Rows = %d, want 1", n)
+		}
+		if !bytes.Equal(bak.Row(1), m.Row(0)) {
+			t.Fatalf("Row(0) mismatch")
+		}
 	})
 
 	t.Run("delRows 3", func(t *testing.T) {
 		bytespool.DebugClear()
 		defer func() {
-			require.Zero(t, bytespool.DebugLength())
+			if n := bytespool.DebugLength(); n != 0 {
+				t.Fatalf("DebugLength = %d, want 0", n)
+			}
 		}()
 
 		m := Make(2, 2)
@@ -167,7 +192,9 @@ func Test_Matrix(t *testing.T) {
 		m.delRows(0)
 		m.delRows(0)
 
-		require.Equal(t, 0, m.Rows())
+		if n := m.Rows(); n != 0 {
+			t.Fatalf("Rows = %d, want 0", n)
+		}
 	})
 
 }
