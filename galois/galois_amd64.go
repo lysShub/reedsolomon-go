@@ -1,0 +1,358 @@
+//go:build amd64
+// +build amd64
+
+package galois
+
+import (
+	"math/bits"
+	"simd/archsimd"
+	"unsafe"
+
+	"golang.org/x/sys/cpu"
+)
+
+func init() {
+	if cpu.X86.HasAVX512GFNI {
+		mulVect = mulVect_gfni
+		mulXorVect = mulXorVect_gfni
+		lastIndex = lastIndex_smid
+		xorVect = xorVect_smid
+	} else if cpu.X86.HasSSE2 {
+		mulVect = mulVect_smid
+		mulXorVect = mulXorVect_smid
+		lastIndex = lastIndex_smid
+		xorVect = xorVect_smid
+	} else {
+		mulVect = mulVect_go
+		mulXorVect = mulXorVect_go
+		lastIndex = lastIndex_go
+		xorVect = xorVect_go
+	}
+}
+
+func mulVect_smid(c byte, i, o []byte) {
+	n := len(i)
+	switch c {
+	case 0:
+		clear(o[:n])
+	case 1:
+		copy(o[:n], i)
+	default:
+		iPtr := unsafe.Pointer(unsafe.SliceData(i))
+		oPtr := unsafe.Pointer(unsafe.SliceData(o))
+		if n >= 64 {
+			t := &lohiTable()[c]
+			loT := archsimd.LoadUint8x16(&t.lo)
+			hiT := archsimd.LoadUint8x16(&t.hi)
+			mask := archsimd.BroadcastUint8x16(0x0f)
+			shiftVec := archsimd.BroadcastUint64x2(4)
+
+			for n >= 64 {
+				v0 := archsimd.LoadUint8x16((*[16]uint8)(unsafe.Add(iPtr, 16*0)))
+				v1 := archsimd.LoadUint8x16((*[16]uint8)(unsafe.Add(iPtr, 16*1)))
+				v2 := archsimd.LoadUint8x16((*[16]uint8)(unsafe.Add(iPtr, 16*2)))
+				v3 := archsimd.LoadUint8x16((*[16]uint8)(unsafe.Add(iPtr, 16*3)))
+
+				l0 := v0.And(mask)
+				l1 := v1.And(mask)
+				l2 := v2.And(mask)
+				l3 := v3.And(mask)
+				h0 := v0.AsUint64x2().ShiftRight(shiftVec).AsUint8x16().And(mask)
+				h1 := v1.AsUint64x2().ShiftRight(shiftVec).AsUint8x16().And(mask)
+				h2 := v2.AsUint64x2().ShiftRight(shiftVec).AsUint8x16().And(mask)
+				h3 := v3.AsUint64x2().ShiftRight(shiftVec).AsUint8x16().And(mask)
+
+				loT.PermuteOrZero(l0.AsInt8x16()).Xor(hiT.PermuteOrZero(h0.AsInt8x16())).Store((*[16]uint8)(unsafe.Add(oPtr, 16*0)))
+				loT.PermuteOrZero(l1.AsInt8x16()).Xor(hiT.PermuteOrZero(h1.AsInt8x16())).Store((*[16]uint8)(unsafe.Add(oPtr, 16*1)))
+				loT.PermuteOrZero(l2.AsInt8x16()).Xor(hiT.PermuteOrZero(h2.AsInt8x16())).Store((*[16]uint8)(unsafe.Add(oPtr, 16*2)))
+				loT.PermuteOrZero(l3.AsInt8x16()).Xor(hiT.PermuteOrZero(h3.AsInt8x16())).Store((*[16]uint8)(unsafe.Add(oPtr, 16*3)))
+
+				iPtr = unsafe.Add(iPtr, 64)
+				oPtr = unsafe.Add(oPtr, 64)
+				n -= 64
+			}
+
+			for n >= 16 {
+				v0 := archsimd.LoadUint8x16((*[16]uint8)(unsafe.Add(iPtr, 0)))
+
+				l0 := v0.And(mask)
+				h0 := v0.AsUint64x2().ShiftRight(shiftVec).AsUint8x16().And(mask)
+
+				loT.PermuteOrZero(l0.AsInt8x16()).Xor(hiT.PermuteOrZero(h0.AsInt8x16())).Store((*[16]uint8)(unsafe.Add(oPtr, 0)))
+
+				iPtr = unsafe.Add(iPtr, 16)
+				oPtr = unsafe.Add(oPtr, 16)
+				n -= 16
+			}
+		}
+
+		tailI := unsafe.Slice((*uint8)(iPtr), n)
+		tailO := unsafe.Slice((*uint8)(oPtr), n)
+		t := _mulTable.Load()[c]
+		for k := range tailI {
+			tailO[k] = t[tailI[k]]
+		}
+	}
+}
+func mulXorVect_smid(c byte, i, o []byte) {
+	n := len(i)
+	switch c {
+	case 0:
+	case 1:
+		xorVect_smid(i, o)
+	default:
+		iPtr := unsafe.Pointer(unsafe.SliceData(i))
+		oPtr := unsafe.Pointer(unsafe.SliceData(o))
+		if n >= 64 {
+			t := &lohiTable()[c]
+			loT := archsimd.LoadUint8x16(&t.lo)
+			hiT := archsimd.LoadUint8x16(&t.hi)
+			mask := archsimd.BroadcastUint8x16(0x0f)
+			shiftVec := archsimd.BroadcastUint64x2(4)
+
+			for n >= 64 {
+				v0 := archsimd.LoadUint8x16((*[16]uint8)(unsafe.Add(iPtr, 16*0)))
+				v1 := archsimd.LoadUint8x16((*[16]uint8)(unsafe.Add(iPtr, 16*1)))
+				v2 := archsimd.LoadUint8x16((*[16]uint8)(unsafe.Add(iPtr, 16*2)))
+				v3 := archsimd.LoadUint8x16((*[16]uint8)(unsafe.Add(iPtr, 16*3)))
+
+				e0 := archsimd.LoadUint8x16((*[16]uint8)(unsafe.Add(oPtr, 16*0)))
+				e1 := archsimd.LoadUint8x16((*[16]uint8)(unsafe.Add(oPtr, 16*1)))
+				e2 := archsimd.LoadUint8x16((*[16]uint8)(unsafe.Add(oPtr, 16*2)))
+				e3 := archsimd.LoadUint8x16((*[16]uint8)(unsafe.Add(oPtr, 16*3)))
+
+				l0 := v0.And(mask)
+				l1 := v1.And(mask)
+				l2 := v2.And(mask)
+				l3 := v3.And(mask)
+				h0 := v0.AsUint64x2().ShiftRight(shiftVec).AsUint8x16().And(mask)
+				h1 := v1.AsUint64x2().ShiftRight(shiftVec).AsUint8x16().And(mask)
+				h2 := v2.AsUint64x2().ShiftRight(shiftVec).AsUint8x16().And(mask)
+				h3 := v3.AsUint64x2().ShiftRight(shiftVec).AsUint8x16().And(mask)
+
+				loT.PermuteOrZero(l0.AsInt8x16()).Xor(hiT.PermuteOrZero(h0.AsInt8x16())).Xor(e0).Store((*[16]uint8)(unsafe.Add(oPtr, 16*0)))
+				loT.PermuteOrZero(l1.AsInt8x16()).Xor(hiT.PermuteOrZero(h1.AsInt8x16())).Xor(e1).Store((*[16]uint8)(unsafe.Add(oPtr, 16*1)))
+				loT.PermuteOrZero(l2.AsInt8x16()).Xor(hiT.PermuteOrZero(h2.AsInt8x16())).Xor(e2).Store((*[16]uint8)(unsafe.Add(oPtr, 16*2)))
+				loT.PermuteOrZero(l3.AsInt8x16()).Xor(hiT.PermuteOrZero(h3.AsInt8x16())).Xor(e3).Store((*[16]uint8)(unsafe.Add(oPtr, 16*3)))
+
+				iPtr = unsafe.Add(iPtr, 64)
+				oPtr = unsafe.Add(oPtr, 64)
+				n -= 64
+			}
+
+			for n >= 16 {
+				v0 := archsimd.LoadUint8x16((*[16]uint8)(unsafe.Add(iPtr, 0)))
+				e0 := archsimd.LoadUint8x16((*[16]uint8)(unsafe.Add(oPtr, 0)))
+
+				l0 := v0.And(mask)
+				h0 := v0.AsUint64x2().ShiftRight(shiftVec).AsUint8x16().And(mask)
+
+				loT.PermuteOrZero(l0.AsInt8x16()).Xor(hiT.PermuteOrZero(h0.AsInt8x16())).Xor(e0).Store((*[16]uint8)(unsafe.Add(oPtr, 0)))
+
+				iPtr = unsafe.Add(iPtr, 16)
+				oPtr = unsafe.Add(oPtr, 16)
+				n -= 16
+			}
+
+		}
+
+		tailI := unsafe.Slice((*uint8)(iPtr), n)
+		tailO := unsafe.Slice((*uint8)(oPtr), n)
+		t := _mulTable.Load()[c]
+		for k := range tailI {
+			tailO[k] ^= t[tailI[k]]
+		}
+	}
+}
+func xorVect_smid(i, o []byte) {
+	n := len(i)
+	iPtr := unsafe.Pointer(unsafe.SliceData(i))
+	oPtr := unsafe.Pointer(unsafe.SliceData(o))
+
+	for n >= 64 {
+		i0 := archsimd.LoadUint8x16((*[16]uint8)(unsafe.Add(iPtr, 16*0)))
+		i1 := archsimd.LoadUint8x16((*[16]uint8)(unsafe.Add(iPtr, 16*1)))
+		i2 := archsimd.LoadUint8x16((*[16]uint8)(unsafe.Add(iPtr, 16*2)))
+		i3 := archsimd.LoadUint8x16((*[16]uint8)(unsafe.Add(iPtr, 16*3)))
+
+		o0 := archsimd.LoadUint8x16((*[16]uint8)(unsafe.Add(oPtr, 16*0)))
+		o1 := archsimd.LoadUint8x16((*[16]uint8)(unsafe.Add(oPtr, 16*1)))
+		o2 := archsimd.LoadUint8x16((*[16]uint8)(unsafe.Add(oPtr, 16*2)))
+		o3 := archsimd.LoadUint8x16((*[16]uint8)(unsafe.Add(oPtr, 16*3)))
+
+		i0.Xor(o0).Store((*[16]uint8)(unsafe.Add(oPtr, 16*0)))
+		i1.Xor(o1).Store((*[16]uint8)(unsafe.Add(oPtr, 16*1)))
+		i2.Xor(o2).Store((*[16]uint8)(unsafe.Add(oPtr, 16*2)))
+		i3.Xor(o3).Store((*[16]uint8)(unsafe.Add(oPtr, 16*3)))
+
+		iPtr = unsafe.Add(iPtr, 64)
+		oPtr = unsafe.Add(oPtr, 64)
+		n -= 64
+	}
+
+	for n >= 16 {
+		i := archsimd.LoadUint8x16((*[16]uint8)(iPtr))
+		o := archsimd.LoadUint8x16((*[16]uint8)(oPtr))
+		i.Xor(o).Store((*[16]uint8)(oPtr))
+		iPtr = unsafe.Add(iPtr, 16)
+		oPtr = unsafe.Add(oPtr, 16)
+		n -= 16
+	}
+
+	tailI := unsafe.Slice((*uint8)(iPtr), n)
+	tailO := unsafe.Slice((*uint8)(oPtr), n)
+	for i, e := range tailI {
+		tailO[i] ^= e
+	}
+}
+func lastIndex_smid(s []byte, v byte) int {
+	n := len(s)
+	if n == 0 {
+		return -1
+	}
+	src := unsafe.Pointer(unsafe.SliceData(s))
+	ptr := unsafe.Add(src, n)
+	broad := archsimd.BroadcastUint8x16(v)
+
+	for n >= 64 {
+		ptr = unsafe.Add(ptr, -64)
+		n -= 64
+
+		v0 := archsimd.LoadUint8x16((*[16]uint8)(ptr))
+		v1 := archsimd.LoadUint8x16((*[16]uint8)(unsafe.Add(ptr, 16*1)))
+		v2 := archsimd.LoadUint8x16((*[16]uint8)(unsafe.Add(ptr, 16*2)))
+		v3 := archsimd.LoadUint8x16((*[16]uint8)(unsafe.Add(ptr, 16*3)))
+
+		m0 := v0.Equal(broad)
+		m1 := v1.Equal(broad)
+		m2 := v2.Equal(broad)
+		m3 := v3.Equal(broad)
+
+		if m0.Or(m1).Or(m2).Or(m3).ToBits() != 0 {
+			if m := m3.ToBits(); m != 0 {
+				return int(uintptr(ptr)-uintptr(src)) + 16*3 + bits.Len16(m) - 1
+			}
+			if m := m2.ToBits(); m != 0 {
+				return int(uintptr(ptr)-uintptr(src)) + 16*2 + bits.Len16(m) - 1
+			}
+			if m := m1.ToBits(); m != 0 {
+				return int(uintptr(ptr)-uintptr(src)) + 16*1 + bits.Len16(m) - 1
+			}
+			if m := m0.ToBits(); m != 0 {
+				return int(uintptr(ptr)-uintptr(src)) + 16*0 + bits.Len16(m) - 1
+			}
+		}
+	}
+
+	for n >= 16 {
+		ptr = unsafe.Add(ptr, -16)
+		n -= 16
+		v := archsimd.LoadUint8x16((*[16]uint8)(ptr))
+		if m := v.Equal(broad).ToBits(); m != 0 {
+			return int(uintptr(ptr)-uintptr(src)) + bits.Len16(m) - 1
+		}
+	}
+
+	for i := n - 1; i >= 0; i-- {
+		if s[i] == v {
+			return i
+		}
+	}
+	return -1
+}
+
+func mulVect_gfni(c byte, i, o []byte) {
+	n := len(i)
+	switch c {
+	case 0:
+		clear(o[:n])
+	case 1:
+		copy(o[:n], i)
+	default:
+		iPtr := unsafe.Pointer(unsafe.SliceData(i))
+		oPtr := unsafe.Pointer(unsafe.SliceData(o))
+
+		cVec := archsimd.BroadcastUint8x64(c)
+		for n >= 256 {
+			v0 := archsimd.LoadUint8x64((*[64]uint8)(unsafe.Add(iPtr, 64*0)))
+			v1 := archsimd.LoadUint8x64((*[64]uint8)(unsafe.Add(iPtr, 64*1)))
+			v2 := archsimd.LoadUint8x64((*[64]uint8)(unsafe.Add(iPtr, 64*2)))
+			v3 := archsimd.LoadUint8x64((*[64]uint8)(unsafe.Add(iPtr, 64*3)))
+
+			v0.GaloisFieldMul(cVec).Store((*[64]uint8)(unsafe.Add(oPtr, 64*0)))
+			v1.GaloisFieldMul(cVec).Store((*[64]uint8)(unsafe.Add(oPtr, 64*1)))
+			v2.GaloisFieldMul(cVec).Store((*[64]uint8)(unsafe.Add(oPtr, 64*2)))
+			v3.GaloisFieldMul(cVec).Store((*[64]uint8)(unsafe.Add(oPtr, 64*3)))
+
+			iPtr = unsafe.Add(iPtr, 256)
+			oPtr = unsafe.Add(oPtr, 256)
+			n -= 256
+		}
+
+		for n >= 64 {
+			v0 := archsimd.LoadUint8x64((*[64]uint8)(iPtr))
+			v0.GaloisFieldMul(cVec).Store((*[64]uint8)(oPtr))
+
+			iPtr = unsafe.Add(iPtr, 64)
+			oPtr = unsafe.Add(oPtr, 64)
+			n -= 64
+		}
+
+		tailI := unsafe.Slice((*uint8)(iPtr), n)
+		tailO := unsafe.Slice((*uint8)(oPtr), n)
+		t := _mulTable.Load()[c]
+		for k := range tailI {
+			tailO[k] = t[tailI[k]]
+		}
+	}
+}
+func mulXorVect_gfni(c byte, i, o []byte) {
+	n := len(i)
+	switch c {
+	case 0:
+	case 1:
+		XorVect(i, o)
+	default:
+		iPtr := unsafe.Pointer(unsafe.SliceData(i))
+		oPtr := unsafe.Pointer(unsafe.SliceData(o))
+
+		cVec := archsimd.BroadcastUint8x64(c)
+		for n >= 256 {
+			v0 := archsimd.LoadUint8x64((*[64]uint8)(unsafe.Add(iPtr, 64*0)))
+			v1 := archsimd.LoadUint8x64((*[64]uint8)(unsafe.Add(iPtr, 64*1)))
+			v2 := archsimd.LoadUint8x64((*[64]uint8)(unsafe.Add(iPtr, 64*2)))
+			v3 := archsimd.LoadUint8x64((*[64]uint8)(unsafe.Add(iPtr, 64*3)))
+
+			e0 := archsimd.LoadUint8x64((*[64]uint8)(unsafe.Add(oPtr, 64*0)))
+			e1 := archsimd.LoadUint8x64((*[64]uint8)(unsafe.Add(oPtr, 64*1)))
+			e2 := archsimd.LoadUint8x64((*[64]uint8)(unsafe.Add(oPtr, 64*2)))
+			e3 := archsimd.LoadUint8x64((*[64]uint8)(unsafe.Add(oPtr, 64*3)))
+
+			v0.GaloisFieldMul(cVec).Xor(e0).Store((*[64]uint8)(unsafe.Add(oPtr, 64*0)))
+			v1.GaloisFieldMul(cVec).Xor(e1).Store((*[64]uint8)(unsafe.Add(oPtr, 64*1)))
+			v2.GaloisFieldMul(cVec).Xor(e2).Store((*[64]uint8)(unsafe.Add(oPtr, 64*2)))
+			v3.GaloisFieldMul(cVec).Xor(e3).Store((*[64]uint8)(unsafe.Add(oPtr, 64*3)))
+
+			iPtr = unsafe.Add(iPtr, 256)
+			oPtr = unsafe.Add(oPtr, 256)
+			n -= 256
+		}
+
+		for n >= 64 {
+			v0 := archsimd.LoadUint8x64((*[64]uint8)(iPtr))
+			e0 := archsimd.LoadUint8x64((*[64]uint8)(oPtr))
+			v0.GaloisFieldMul(cVec).Xor(e0).Store((*[64]uint8)(oPtr))
+
+			iPtr = unsafe.Add(iPtr, 64)
+			oPtr = unsafe.Add(oPtr, 64)
+			n -= 64
+		}
+
+		tailI := unsafe.Slice((*uint8)(iPtr), n)
+		tailO := unsafe.Slice((*uint8)(oPtr), n)
+		t := _mulTable.Load()[c]
+		for k := range tailI {
+			tailO[k] ^= t[tailI[k]]
+		}
+	}
+}
