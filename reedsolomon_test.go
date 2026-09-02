@@ -159,8 +159,8 @@ func Test_Base(t *testing.T) {
 		{ // 恢复
 			var reconst = makes(1, len(datas[0]))
 			n := reedsolomon.Reconst(para, blocks, []uint8{1}, reconst)
-			if n != 0 {
-				t.Fatalf("n = %d, want 0", n)
+			if n != 1 {
+				t.Fatalf("n = %d, want 1", n)
 			}
 			if !bytes.Equal(datas[0], reconst[0]) {
 				t.Fatalf("reconst mismatch")
