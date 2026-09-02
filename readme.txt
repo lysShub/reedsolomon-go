@@ -1,3 +1,6 @@
+
+go env -w GOEXPERIMENT=simd
+
 这是专为网络编码设计reedsolomon fec, 与其他reedsolomon包的主要区别是:
 
 1. 无状态的, 在编解码时, 只需传入对应的Para 
