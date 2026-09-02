@@ -2,6 +2,8 @@ package encodec
 
 import (
 	"slices"
+
+	"github.com/lysShub/debug-go"
 )
 
 // Encodec 获取编解码矩阵, idxs为空表示获取编码矩阵
@@ -16,18 +18,18 @@ func Encodec(grousize, datasize uint8, idxs ...uint8) Matrix {
 	}
 }
 func encodec(grousize, datasize uint8, idxs ...uint8) Matrix {
-	// if debug.Debug() {
-	// 	debug.Greater(grousize, 0)
-	// 	debug.Greater(datasize, 0)
-	// 	debug.Less(datasize, grousize) // 存在rs编码
-	// }
+	if debug.Debug() {
+		debug.Greater(grousize, 0)
+		debug.Greater(datasize, 0)
+		debug.Less(datasize, grousize) // 存在rs编码
+	}
 	if len(idxs) == 0 {
 		return encodeMatrix(grousize, datasize)
 	} else {
-		// if debug.Debug() {
-		// 	debug.Greater(lossDatablocks(datasize, idxs), 0) // 存在丢包
-		// 	debug.GreaterOrEqual(len(idxs), int(datasize))   // 可以恢复
-		// }
+		if debug.Debug() {
+			debug.Greater(lossDatablocks(datasize, idxs), 0) // 存在丢包
+			debug.GreaterOrEqual(len(idxs), int(datasize))   // 可以恢复
+		}
 		return decodeMatrix(grousize, datasize, idxs)
 	}
 }
@@ -38,9 +40,9 @@ func lossDatablocks(datasize uint8, index []uint8) int {
 			n += 1
 		}
 	}
-	// if debug.Debug() {
-	// 	debug.GreaterOrEqual(int(datasize), n)
-	// }
+	if debug.Debug() {
+		debug.GreaterOrEqual(int(datasize), n)
+	}
 	return int(datasize) - n
 }
 
@@ -56,11 +58,11 @@ func encodeMatrix(grousize, datasize uint8) (m Matrix) {
 	return m
 }
 func decodeMatrix(grousize, datasize uint8, indexs []uint8) Matrix {
-	// if debug.Debug() {
-	// 	debug.True(slices.IsSorted(indexs))
-	// 	debug.Greater(grousize, 0)
-	// 	debug.Greater(datasize, 0)
-	// }
+	if debug.Debug() {
+		debug.True(slices.IsSorted(indexs))
+		debug.Greater(grousize, 0)
+		debug.Greater(datasize, 0)
+	}
 	base := baseMatrix(grousize, datasize)
 	defer base.Release()
 
@@ -86,9 +88,9 @@ func decodeMatrix(grousize, datasize uint8, indexs []uint8) Matrix {
 }
 
 func baseMatrix(grousize, datasize uint8) Matrix {
-	// if debug.Debug() {
-	// 	debug.LessOrEqual(datasize, grousize)
-	// }
+	if debug.Debug() {
+		debug.LessOrEqual(datasize, grousize)
+	}
 	vm := vandermonde(int(grousize), int(datasize))
 	defer vm.Release()
 

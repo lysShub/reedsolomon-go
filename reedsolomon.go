@@ -2,6 +2,9 @@
 package reedsolomon
 
 import (
+	"slices"
+
+	"github.com/lysShub/debug-go"
 	"github.com/lysShub/reedsolomon-go/galois"
 )
 
@@ -22,11 +25,11 @@ func (p Para) Valid() bool {
 //	idx   : 此数据包在组中的位置
 //	parity: 存放校验数据块, 要求 len(parity) >= para.Paritysize, 且 len(parity[i]) >= len(data)
 func Encode(para Para, data []byte, idx uint8, parity [][]byte) {
-	// if debug.Debug() {
-	// 	debug.Less(idx, para.Datasize)
-	// 	debug.GreaterOrEqual(len(parity), int(para.Paritysize()))
-	// 	debug.GreaterOrEqual(slices.Min(lens(parity[:para.Paritysize()])), len(data))
-	// }
+	if debug.Debug() {
+		debug.Less(idx, para.Datasize)
+		debug.GreaterOrEqual(len(parity), int(para.Paritysize()))
+		debug.GreaterOrEqual(slices.Min(lens(parity[:para.Paritysize()])), len(data))
+	}
 	parity = parity[:para.Paritysize()]
 
 	matrix := Cache.matrix(para)
@@ -54,22 +57,22 @@ func Reconst(para Para, blocks [][]byte, indexs []uint8, reconst [][]byte) int {
 	if len(blocks) < int(para.Datasize) {
 		return 0 // 丢失太多编码块, 无法恢复
 	}
-	// if debug.Debug() {
-	// 	debug.Equal(len(blocks), len(indexs))
-	// 	debug.Equal(len(indexs), len(slices.Compact(indexs)))
-	// 	debug.Less(slices.Max(indexs), para.Groupsize)
-	// 	debug.True(slices.IsSorted(indexs))
-	// }
+	if debug.Debug() {
+		debug.Equal(len(blocks), len(indexs))
+		debug.Equal(len(indexs), len(slices.Compact(indexs)))
+		debug.Less(slices.Max(indexs), para.Groupsize)
+		debug.True(slices.IsSorted(indexs))
+	}
 	blocks = blocks[:para.Datasize]
 	indexs = indexs[:para.Datasize]
 	loss := lossDatablocks(para, indexs)
 	if loss == 0 {
 		return 0 // 无丢失数据块
 	}
-	// if debug.Debug() {
-	// 	debug.GreaterOrEqual(len(reconst), loss)
-	// 	debug.GreaterOrEqual(slices.Min(lens(reconst)), slices.Max(lens(blocks)))
-	// }
+	if debug.Debug() {
+		debug.GreaterOrEqual(len(reconst), loss)
+		debug.GreaterOrEqual(slices.Min(lens(reconst)), slices.Max(lens(blocks)))
+	}
 	reconst = reconst[:loss]
 
 	matrix := Cache.matrix(para, indexs...)
