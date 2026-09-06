@@ -16,11 +16,13 @@ func Encodec(matrix []byte, grousize, datasize uint8, idxs ...uint8) int {
 	return decodeMatrix(matrix, g, d, idxs)
 }
 
+const stackAlloc = 1024 + 512
+
 func encodeMatrix(dst []byte, g, d int) int {
 	total := g*d + 4*d*d
 
-	if total <= 1024*8 {
-		var b [1024 * 8]byte
+	if total <= stackAlloc {
+		var b [stackAlloc]byte
 		return encodeMatrixBuf(dst, b[:], g, d)
 	} else {
 		b := Pooler.Get(total)
@@ -42,8 +44,8 @@ func encodeMatrixBuf(dst, buf []byte, g, d int) int {
 func decodeMatrix(dst []byte, g, d int, indexs []uint8) int {
 	total := g*d + 4*d*d
 
-	if total <= 1024*8 {
-		var b [1024 * 8]byte
+	if total <= stackAlloc {
+		var b [stackAlloc]byte
 		return decodeMatrixBuf(dst, b[:], g, d, indexs)
 	} else {
 		b := Pooler.Get(total)
