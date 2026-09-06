@@ -56,7 +56,7 @@ func (c *cache) matrix(para Para, idxs ...uint8) []byte {
 		return v.m
 	}
 
-	// [newIndexs]是复用的内存, 只可用于临时查询
+	// [newIndexs] is reuse memory, read-only
 	key.indexs = indexs(strings.Clone(string(key.indexs)))
 	val := newCacheval(para, idxs)
 	c.mu.Lock()
@@ -114,5 +114,5 @@ func newIndexs(idxs []uint8) indexs {
 
 type cachekey struct {
 	para   Para
-	indexs indexs // 仅decodeMatrix才会设置
+	indexs indexs // only decodeMatrix
 }
