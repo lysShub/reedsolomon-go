@@ -3,104 +3,94 @@ package encodec
 import (
 	"slices"
 
-	"github.com/lysShub/debug-go"
+	"github.com/lysShub/bytespool-go"
 )
 
-// Encodec 获取编解码矩阵, idxs为空表示获取编码矩阵
-func Encodec(grousize, datasize uint8, idxs ...uint8) Matrix {
-	m := encodec(grousize, datasize, idxs...)
+var Pooler bytespool.Pooler[[]byte, byte] = bytespool.Pool[[]byte, byte]{}
 
-	if b := m.raw(); len(b)*2 <= cap(b) {
-		defer m.Release()
-		return m.Clone()
-	} else {
-		return m
-	}
-}
-func encodec(grousize, datasize uint8, idxs ...uint8) Matrix {
-	if debug.Debug() {
-		debug.Greater(grousize, 0)
-		debug.Greater(datasize, 0)
-		debug.Less(datasize, grousize) // 存在rs编码
-	}
+func Encodec(matrix []byte, grousize, datasize uint8, idxs ...uint8) int {
+	g, d := int(grousize), int(datasize)
 	if len(idxs) == 0 {
-		return encodeMatrix(grousize, datasize)
+		return encodeMatrix(matrix, g, d)
+	}
+	return decodeMatrix(matrix, g, d, idxs)
+}
+
+const stackAlloc = 1024 + 512
+
+func encodeMatrix(dst []byte, g, d int) int {
+	total := g*d + 4*d*d
+
+	if total <= stackAlloc {
+		var b [stackAlloc]byte
+		return encodeMatrixBuf(dst, b[:], g, d)
 	} else {
-		if debug.Debug() {
-			debug.Greater(lossDatablocks(datasize, idxs), 0) // 存在丢包
-			debug.GreaterOrEqual(len(idxs), int(datasize))   // 可以恢复
-		}
-		return decodeMatrix(grousize, datasize, idxs)
+		b := Pooler.Get(total)
+		defer Pooler.Put(b)
+		return encodeMatrixBuf(dst, b, g, d)
 	}
 }
-func lossDatablocks(datasize uint8, index []uint8) int {
-	n := 0
-	for _, e := range index {
-		if e < datasize {
-			n += 1
-		}
-	}
-	if debug.Debug() {
-		debug.GreaterOrEqual(int(datasize), n)
-	}
-	return int(datasize) - n
-}
+func encodeMatrixBuf(dst, buf []byte, g, d int) int {
+	baseMatrixBuf(dst, buf, g, d)
 
-func encodeMatrix(grousize, datasize uint8) (m Matrix) {
-	m = baseMatrix(grousize, datasize)
-
-	// 剔除头部的单位矩阵
-	idxs := make([]int, m.cols)
-	for i := range idxs {
+	var idxs [256]int
+	for i := range idxs[:d] {
 		idxs[i] = i
 	}
-	m.delRows(idxs...)
-	return m
+	rows := delRows(dst, g, idxs[:d]...)
+	return rows * d
 }
-func decodeMatrix(grousize, datasize uint8, indexs []uint8) Matrix {
-	if debug.Debug() {
-		debug.True(slices.IsSorted(indexs))
-		debug.Greater(grousize, 0)
-		debug.Greater(datasize, 0)
-	}
-	base := baseMatrix(grousize, datasize)
-	defer base.Release()
 
-	// 根据indexs, 获取前datasize个块, 使得m是个方阵
-	var del []int
-	for i := uint8(0); i < grousize; i++ {
-		if !slices.Contains(indexs[:datasize], i) {
-			del = append(del, int(i))
+func decodeMatrix(dst []byte, g, d int, indexs []uint8) int {
+	total := g*d + 4*d*d
+
+	if total <= stackAlloc {
+		var b [stackAlloc]byte
+		return decodeMatrixBuf(dst, b[:], g, d, indexs)
+	} else {
+		b := Pooler.Get(total)
+		defer Pooler.Put(b)
+		return decodeMatrixBuf(dst, b, g, d, indexs)
+	}
+}
+func decodeMatrixBuf(dst, buf []byte, g, d int, indexs []uint8) int {
+	baseMatrixBuf(dst, buf, g, d)
+
+	var del [256]int
+	var delN int
+	for i := uint8(0); i < uint8(g); i++ {
+		if !slices.Contains(indexs[:d], i) {
+			del[delN] = int(i)
+			delN++
 		}
 	}
-	base.delRows(del...)
+	n := delRows(dst, g, del[:delN]...)
 
-	// 只是取丢失的数据块对应的行
-	m := base.invert()
-	var del2 []int
-	for i := uint8(0); i < datasize; i++ {
+	inv := buf[g*d : g*d+d*d]
+	work := buf[g*d+2*d*d : g*d+4*d*d]
+	invert(inv[:n*n], work, dst[:n*n], n)
+
+	var del2 [256]int
+	var del2N int
+	for i := uint8(0); i < uint8(d); i++ {
 		if slices.Contains(indexs, i) {
-			del2 = append(del2, int(i))
+			del2[del2N] = int(i)
+			del2N++
 		}
 	}
-	m.delRows(del2...)
-	return m
+	rows := delRows(inv[:n*n], n, del2[:del2N]...)
+	copy(dst, inv[:rows*n])
+	return rows * n
 }
 
-func baseMatrix(grousize, datasize uint8) Matrix {
-	if debug.Debug() {
-		debug.LessOrEqual(datasize, grousize)
-	}
-	vm := vandermonde(int(grousize), int(datasize))
-	defer vm.Release()
+func baseMatrixBuf(dst, buf []byte, g, d int) {
+	vm := buf[:g*d]
+	sq := buf[g*d : g*d+d*d]
+	inv := buf[g*d+d*d : g*d+2*d*d]
+	work := buf[g*d+2*d*d : g*d+4*d*d]
 
-	// 获取数据包对应的方阵范德蒙矩阵
-	square := vm.sub(0, 0, int(datasize), int(datasize))
-	defer square.Release()
-
-	inv := square.invert()
-	defer inv.Release()
-
-	m := vm.mul(inv)
-	return m
+	vandermonde(vm, g)
+	sub(sq, vm, g, 0, 0, d, d)
+	invert(inv, work, sq, d)
+	mul(dst, vm, g, inv, d)
 }

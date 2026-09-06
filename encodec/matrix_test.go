@@ -10,20 +10,21 @@ import (
 	"github.com/lysShub/bytespool-go"
 )
 
-func fromRows(rows [][]byte) Matrix {
-	m := Make(len(rows), len(rows[0]))
-	for i := range rows {
-		copy(m.Row(i), rows[i])
+func fromRows(rows [][]byte) []byte {
+	cols := len(rows[0])
+	m := make([]byte, len(rows)*cols)
+	for i, r := range rows {
+		copy(m[i*cols:(i+1)*cols], r)
 	}
 	return m
 }
 
-func (m Matrix) String() string {
-	rows := make([]string, 0, m.rows)
-
+func matrixString(m []byte, rows int) string {
+	cols := len(m) / rows
+	lines := make([]string, 0, rows)
 	var num = make([]byte, 0, 3)
-	for r := 0; r < m.rows; r++ {
-		row := m.Row(r)
+	for r := 0; r < rows; r++ {
+		row := m[r*cols : (r+1)*cols]
 		var b = make([]byte, 0, len(row)*4+2)
 		b = append(b, '[')
 		for i, v := range row {
@@ -32,96 +33,84 @@ func (m Matrix) String() string {
 				b = append(b, ' ')
 			}
 			b = append(b, num...)
-
 			if i < len(row)-1 {
 				b = append(b, ',')
 			}
 		}
 		b = append(b, ']')
-
-		rows = append(rows, string(b))
+		lines = append(lines, string(b))
 	}
-	return strings.Join(rows, "\n")
+	return strings.Join(lines, "\n")
 }
 
 func Test_Matrix(t *testing.T) {
-
 	t.Run("delRows", func(t *testing.T) {
-		var m = fromRows([][]byte{
+		m := fromRows([][]byte{
 			{0, 115, 255},
 			{152, 2, 3},
 		})
-		defer m.Release()
-		m.delRows(0)
-
-		if got := m.String(); got != "[152,  2,  3]" {
+		rows := delRows(m, 2, 0)
+		if got := matrixString(m[:rows*3], rows); got != "[152,  2,  3]" {
 			t.Fatalf("mismatch:\n%s", got)
 		}
 	})
 
 	t.Run("String", func(t *testing.T) {
-		var m = fromRows([][]byte{
+		m := fromRows([][]byte{
 			{0, 115, 255},
 			{152, 2, 3},
 		})
-		defer m.Release()
-		if got := m.String(); got != "[  0,115,255]\n[152,  2,  3]" {
+		if got := matrixString(m, 2); got != "[  0,115,255]\n[152,  2,  3]" {
 			t.Fatalf("mismatch:\n%s", got)
 		}
 	})
 
 	t.Run("mul", func(t *testing.T) {
-		var m1 = fromRows([][]byte{
+		m1 := fromRows([][]byte{
 			{0, 115, 255},
 			{152, 2, 3},
 		})
-		var m2 = fromRows([][]byte{
+		m2 := fromRows([][]byte{
 			{34, 67},
 			{77, 12},
 			{111, 1},
 		})
-		defer m1.Release()
-		defer m2.Release()
-
-		r := m1.mul(m2)
-		defer r.Release()
-		if got := r.String(); got != "[209,157]\n[134,191]" {
+		dst := make([]byte, 2*2)
+		mul(dst, m1, 2, m2, 3)
+		if got := matrixString(dst, 2); got != "[209,157]\n[134,191]" {
 			t.Fatalf("mismatch:\n%s", got)
 		}
 	})
 
 	t.Run("invert", func(t *testing.T) {
-		var m1 = fromRows([][]byte{
+		m1 := fromRows([][]byte{
 			{0, 115, 255},
 			{152, 2, 3},
 			{111, 1, 77},
 		})
-		defer m1.Release()
-
-		inv := m1.invert()
-		defer inv.Release()
-		if got := inv.String(); got != "[172, 26, 17]\n[104, 44,209]\n[126,130,215]" {
+		dst := make([]byte, 3*3)
+		work := make([]byte, 3*3*2)
+		invert(dst, work, m1, 3)
+		if got := matrixString(dst, 3); got != "[172, 26, 17]\n[104, 44,209]\n[126,130,215]" {
 			t.Fatalf("mismatch:\n%s", got)
 		}
 	})
 
 	t.Run("sub", func(t *testing.T) {
-		var m = fromRows([][]byte{
+		m := fromRows([][]byte{
 			{0, 115, 255},
 			{152, 112, 3},
 			{111, 1, 177},
 		})
-		defer m.Release()
-
-		m1 := m.sub(1, 1, 2, 2)
-		defer m1.Release()
-		if got := m1.String(); got != "[112]" {
+		m1 := make([]byte, 1*1)
+		sub(m1, m, 3, 1, 1, 2, 2)
+		if got := matrixString(m1, 1); got != "[112]" {
 			t.Fatalf("mismatch:\n%s", got)
 		}
 
-		m2 := m.sub(1, 1, 3, 3)
-		defer m2.Release()
-		if got := m2.String(); got != "[112,  3]\n[  1,177]" {
+		m2 := make([]byte, 2*2)
+		sub(m2, m, 3, 1, 1, 3, 3)
+		if got := matrixString(m2, 2); got != "[112,  3]\n[  1,177]" {
 			t.Fatalf("mismatch:\n%s", got)
 		}
 	})
@@ -134,19 +123,17 @@ func Test_Matrix(t *testing.T) {
 			}
 		}()
 
-		m := Make(2, 2)
-		defer m.Release()
-		rand.Read(m.Row(0))
-		rand.Read(m.Row(1))
-		bak := m.Clone()
-		defer bak.Release()
+		m := make([]byte, 2*2)
+		rand.Read(m)
+		bak := make([]byte, 2*2)
+		copy(bak, m)
 
-		m.swapRow(0, 1)
+		swapRow(m, 2, 0, 1)
 
-		if !bytes.Equal(bak.Row(1), m.Row(0)) {
+		if !bytes.Equal(m[2:4], bak[0:2]) {
 			t.Fatalf("Row(0) mismatch")
 		}
-		if !bytes.Equal(bak.Row(0), m.Row(1)) {
+		if !bytes.Equal(m[0:2], bak[2:4]) {
 			t.Fatalf("Row(1) mismatch")
 		}
 	})
@@ -159,19 +146,17 @@ func Test_Matrix(t *testing.T) {
 			}
 		}()
 
-		m := Make(2, 2)
-		defer m.Release()
-		rand.Read(m.Row(0))
-		rand.Read(m.Row(1))
-		bak := m.Clone()
-		defer bak.Release()
+		m := make([]byte, 2*2)
+		rand.Read(m)
+		bak := make([]byte, 2*2)
+		copy(bak, m)
 
-		m.delRows(0)
+		rows := delRows(m, 2, 0)
 
-		if n := m.Rows(); n != 1 {
-			t.Fatalf("Rows = %d, want 1", n)
+		if rows != 1 {
+			t.Fatalf("Rows = %d, want 1", rows)
 		}
-		if !bytes.Equal(bak.Row(1), m.Row(0)) {
+		if !bytes.Equal(m[:2], bak[2:4]) {
 			t.Fatalf("Row(0) mismatch")
 		}
 	})
@@ -184,17 +169,14 @@ func Test_Matrix(t *testing.T) {
 			}
 		}()
 
-		m := Make(2, 2)
-		defer m.Release()
-		rand.Read(m.Row(0))
-		rand.Read(m.Row(1))
+		m := make([]byte, 2*2)
+		rand.Read(m)
 
-		m.delRows(0)
-		m.delRows(0)
+		rows := delRows(m, 2, 0)
+		rows = delRows(m[:rows*2], rows, 0)
 
-		if n := m.Rows(); n != 0 {
-			t.Fatalf("Rows = %d, want 0", n)
+		if rows != 0 {
+			t.Fatalf("Rows = %d, want 0", rows)
 		}
 	})
-
 }

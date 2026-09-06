@@ -44,7 +44,7 @@ func (c *cache) Release() {
 	clear(c.m)
 }
 
-func (c *cache) matrix(para Para, idxs ...uint8) encodec.Matrix {
+func (c *cache) matrix(para Para, idxs ...uint8) []byte {
 	key := cachekey{para: para, indexs: newIndexs(idxs)}
 	c.mu.RLock()
 	v := c.m[key]
@@ -56,7 +56,7 @@ func (c *cache) matrix(para Para, idxs ...uint8) encodec.Matrix {
 		return v.m
 	}
 
-	// [newIndexs]是复用的内存, 只可用于临时查询
+	// [newIndexs] is reuse memory, read-only
 	key.indexs = indexs(strings.Clone(string(key.indexs)))
 	val := newCacheval(para, idxs)
 	c.mu.Lock()
@@ -66,7 +66,7 @@ func (c *cache) matrix(para Para, idxs ...uint8) encodec.Matrix {
 			val = v
 		} else {
 			c.m[key] = val
-			c.bytes += val.m.Len()
+			c.bytes += len(val.m)
 			c.clear()
 		}
 	}
@@ -78,7 +78,7 @@ func (c *cache) clear() {
 		limit := c.count.Load() / 8
 		for k, v := range c.m {
 			if v.count.Load() < limit {
-				c.bytes -= v.m.Len()
+				c.bytes -= len(v.m)
 				v.release()
 				delete(c.m, k)
 			} else {
@@ -90,16 +90,16 @@ func (c *cache) clear() {
 }
 
 type cacheval struct {
-	m     encodec.Matrix
+	m     []byte
 	count atomic.Uint64
-} //
-func newCacheval(para Para, idxs []uint8) *cacheval {
-	val := &cacheval{
-		m: encodec.Encodec(para.Groupsize, para.Datasize, idxs...),
-	}
-	return val
 }
-func (c *cacheval) release() { c.m.Release() }
+
+func newCacheval(para Para, idxs []uint8) *cacheval {
+	buf := encodec.Pooler.Get(int(para.Groupsize) * int(para.Datasize))
+	n := encodec.Encodec(buf, para.Groupsize, para.Datasize, idxs...)
+	return &cacheval{m: buf[:n]}
+}
+func (c *cacheval) release() { encodec.Pooler.Put(c.m) }
 
 type indexs string
 
@@ -114,5 +114,5 @@ func newIndexs(idxs []uint8) indexs {
 
 type cachekey struct {
 	para   Para
-	indexs indexs // 仅decodeMatrix才会设置
+	indexs indexs // only decodeMatrix
 }
