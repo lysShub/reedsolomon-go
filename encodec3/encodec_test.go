@@ -1,12 +1,17 @@
-package encodec3_test
+package encodec3
 
 import (
 	"bytes"
 	"testing"
 
+	"github.com/lysShub/bytespool-go"
 	"github.com/lysShub/reedsolomon-go/encodec"
-	"github.com/lysShub/reedsolomon-go/encodec3"
 )
+
+func TestXxxx(t *testing.T) {
+	const g = 24
+	const maxb = g*(g-1) + 4*(g-1)*(g-1)
+}
 
 func Test_Encodec(t *testing.T) {
 	cases := []struct {
@@ -38,7 +43,7 @@ func Test_Encodec(t *testing.T) {
 	for _, tc := range cases {
 		exp := encodec.Encodec(tc.g, tc.d, tc.idxs...)
 		act := make([]byte, int(tc.g)*int(tc.d))
-		n := encodec3.Encodec(act, tc.g, tc.d, tc.idxs...)
+		n := Encodec(act, tc.g, tc.d, tc.idxs...)
 
 		cols := int(tc.d)
 		rows := exp.Rows()
@@ -50,5 +55,118 @@ func Test_Encodec(t *testing.T) {
 				t.Fatalf("%v: matrix mismatch at row %d\nencodec:\n%v\nencode3:\n%v", tc, i, exp.Row(i), act[i*cols:(i+1)*cols])
 			}
 		}
+	}
+}
+
+func Test_Encodec_String(t *testing.T) {
+	dst := make([]byte, 8*5)
+
+	n := Encodec(dst, 8, 5)
+	exp1 := `[  7,  7,  6,  6,  1]
+[  9,  8,  9,  8,  1]
+[ 15, 14, 14, 15,  1]`
+	if got := matrixString(dst[:n], n/5); got != exp1 {
+		t.Fatalf("act1 mismatch:\n%s", got)
+	}
+
+	n = Encodec(dst, 8, 5, []uint8{0, 2, 4, 5, 6}...)
+	exp2 := `[ 71, 70, 71,  1, 70]
+[174,175,175,  1,174]`
+	if got := matrixString(dst[:n], n/5); got != exp2 {
+		t.Fatalf("act2 mismatch:\n%s", got)
+	}
+}
+
+func Test_bytespool(t *testing.T) {
+	bytespool.DebugClear()
+	const groupsize = 5
+	dst := make([]byte, 255*255)
+	for datasize := uint8(1); datasize < groupsize; datasize++ {
+		Encodec(dst, groupsize, datasize)
+		idxs := combination(datasize, datasize)
+		for _, e := range idxs {
+			if lossDatablocks(datasize, e) > 0 {
+				Encodec(dst, groupsize, datasize, e...)
+			}
+		}
+	}
+	if n := bytespool.DebugLength(); n != 0 {
+		t.Fatalf("DebugLength = %d, want 0", n)
+	}
+}
+
+func combination[T uint8 | int](n, m T) [][]T {
+	var result [][]T
+	if m < 0 || m > n || n < 0 {
+		return result
+	}
+	current := make([]T, 0, m)
+	var backtrack func(start T)
+	backtrack = func(start T) {
+		if len(current) == int(m) {
+			temp := make([]T, m)
+			copy(temp, current)
+			result = append(result, temp)
+			return
+		}
+		if int(n)-int(start) < int(m)-len(current) {
+			return
+		}
+		for i := start; i < n; i++ {
+			current = append(current, i)
+			backtrack(i + 1)
+			current = current[:len(current)-1]
+		}
+	}
+	backtrack(0)
+	return result
+}
+
+func lossDatablocks(datasize uint8, index []uint8) int {
+	n := 0
+	for _, e := range index {
+		if e < datasize {
+			n += 1
+		}
+	}
+	return int(datasize) - n
+}
+
+var (
+	groupsize uint8 = 8
+	datasize  uint8 = 5
+)
+
+func Benchmark_baseMatrix(b *testing.B) {
+	dst := make([]byte, 255*255)
+	buf := make([]byte, 255*255+4*255*255)
+	b.ReportAllocs()
+
+	for b.Loop() {
+		baseMatrixBuf(dst, buf, int(groupsize), int(datasize))
+	}
+}
+
+func Benchmark_encodeMatrix(b *testing.B) {
+	dst := make([]byte, 255*255)
+	b.ReportAllocs()
+
+	for b.Loop() {
+		encodeMatrix(dst, int(groupsize), int(datasize))
+	}
+}
+
+func Benchmark_decodeMatrix(b *testing.B) {
+	dst := make([]byte, 255*255)
+	var indexs []uint8
+	for i := range groupsize {
+		if i != 0 && i != groupsize-1 {
+			indexs = append(indexs, i)
+		}
+	}
+	b.ReportAllocs()
+
+	for b.Loop() {
+		decodeMatrix(dst, int(groupsize), int(datasize), indexs)
 	}
 }
