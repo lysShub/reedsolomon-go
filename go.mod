@@ -1,6 +1,6 @@
 module github.com/lysShub/reedsolomon-go
 
-go 1.27.0
+go 1.27
 
 require (
 	github.com/lysShub/bytespool-go v1.2.0
