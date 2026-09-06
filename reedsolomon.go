@@ -34,7 +34,8 @@ func Encode(para Para, data []byte, idx uint8, parity [][]byte) {
 
 	matrix := Cache.matrix(para)
 	for i, p := range parity {
-		c := matrix.Row(i)[idx]
+		// row: i  col: idx
+		c := matrix[int(i)*int(para.Datasize)+int(idx)]
 
 		if idx == 0 {
 			galois.MulVect(c, data, p)
@@ -78,7 +79,8 @@ func Reconst(para Para, blocks [][]byte, indexs []uint8, reconst [][]byte) int {
 	matrix := Cache.matrix(para, indexs...)
 	for bi, b := range blocks {
 		for ri, r := range reconst {
-			c := matrix.Row(ri)[bi]
+			// row: ri  col: bi
+			c := matrix[int(ri)*int(para.Datasize)+int(bi)]
 
 			if bi == 0 {
 				galois.MulVect(c, b, r)
