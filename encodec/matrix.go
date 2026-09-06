@@ -3,194 +3,90 @@ package encodec
 import (
 	"slices"
 
-	"github.com/lysShub/debug-go"
 	"github.com/lysShub/reedsolomon-go/galois"
-
-	"github.com/lysShub/bytespool-go"
 )
 
-var Pooler bytespool.Pooler[[]byte, byte] = bytespool.Pool[[]byte, byte]{}
-
-// Matrix 行优先存储, 整个矩阵为一块bytespool内存
-type Matrix struct {
-	b    []byte
-	rows int
-	cols int
-}
-
-func Make(rows, cols int) Matrix {
-	if debug.Debug() {
-		debug.Greater(rows, 0)
-		debug.Greater(cols, 0)
-	}
-	return Matrix{
-		b:    Pooler.Get(rows * cols),
-		rows: rows,
-		cols: cols,
-	}
-}
-func (m Matrix) raw() []byte { return m.b }
-func (m Matrix) Rows() int   { return m.rows }
-func (m Matrix) Cols() int   { return m.cols }
-func (m Matrix) Len() int    { return len(m.b) }
-func (m Matrix) Row(i int) []byte {
-	if debug.Debug() {
-		debug.GreaterOrEqual(i, 0)
-		debug.Less(i, m.rows)
-	}
-	return m.b[i*m.cols : (i+1)*m.cols]
-}
-func (m *Matrix) Release() {
-	if m.b != nil {
-		Pooler.Put(m.b)
-		m.b, m.rows, m.cols = nil, 0, 0
-	}
-}
-
-func (m Matrix) Clone() Matrix {
-	m1 := Make(m.rows, m.cols)
-	for i := 0; i < m.rows; i++ {
-		copy(m1.Row(i), m.Row(i))
-	}
-	return m1
-}
-
-// vandermonde 创建一个范德蒙矩阵
-func vandermonde(rows, cols int) Matrix {
-	m := Make(rows, cols)
+// vandermonde create a vandermonde-matrix
+func vandermonde(dst []byte, rows int) {
+	cols := len(dst) / rows
 	for rowi := 0; rowi < rows; rowi++ {
-		row := m.Row(rowi)
+		row := dst[rowi*cols : (rowi+1)*cols]
 		for coli := range row {
 			row[coli] = galois.Pow(byte(rowi), byte(coli))
 		}
 	}
-	return m
 }
 
-func (m *Matrix) delRows(idxs ...int) {
-	if len(idxs) == 0 {
-		return
-	}
-	if debug.Debug() {
-		debug.Equal(len(m.b), m.rows*m.cols)
-		debug.LessOrEqual(len(idxs), m.rows)
-	}
-
-	n, w := m.cols, 0
-	for r := 0; r < m.rows; r++ {
-		if slices.Contains(idxs, r) {
-			continue
-		}
-		if w != r {
-			copy(m.Row(w), m.Row(r))
-		}
-		w++
-	}
-	m.b = m.b[:w*n]
-	m.rows = w
-}
-
-func (m *Matrix) swapRow(r1, r2 int) {
-	if debug.Debug() {
-		debug.GreaterOrEqual(r1, 0)
-		debug.Less(r1, m.rows)
-		debug.GreaterOrEqual(r2, 0)
-		debug.Less(r2, m.rows)
-	}
-	if r1 == r2 {
-		return
-	}
-	a, b := m.Row(r1), m.Row(r2)
-	for i := range a {
-		a[i], b[i] = b[i], a[i]
-	}
-}
-
-func (m Matrix) sub(rmin, cmin, rmax, cmax int) Matrix {
-	if debug.Debug() {
-		debug.Equal(len(m.b), m.rows*m.cols)
-	}
-	res := Make(rmax-rmin, cmax-cmin)
+// sub extract sub-matrix from m
+func sub(dst, m []byte, rows int, rmin, cmin, rmax, cmax int) {
+	cols := len(m) / rows
+	w := cmax - cmin
 	for ri := rmin; ri < rmax; ri++ {
-		copy(res.Row(ri-rmin), m.Row(ri)[cmin:cmax])
+		copy(dst[(ri-rmin)*w:(ri-rmin+1)*w], m[ri*cols+cmin:ri*cols+cmax])
 	}
-	return res
 }
 
-func (m Matrix) mul(right Matrix) Matrix {
-	if debug.Debug() {
-		debug.Equal(len(m.b), m.rows*m.cols)
-		debug.Equal(len(right.b), right.rows*right.cols)
-		debug.Equal(m.cols, right.rows)
-	}
-	res := Make(m.rows, right.cols)
-	for r := 0; r < m.rows; r++ {
-		for c := 0; c < right.cols; c++ {
-			res.b[r*res.cols+c] = right.mulColSum(m.Row(r), c)
+func mul(dst, l []byte, lrows int, r []byte, rrows int) {
+	lcols := len(l) / lrows
+	rcols := len(r) / rrows
+	for i := 0; i < lrows; i++ {
+		row := dst[i*rcols : (i+1)*rcols]
+		lrow := l[i*lcols : (i+1)*lcols]
+		for j := 0; j < rcols; j++ {
+			row[j] = mulColSum(r, rrows, lrow, j)
 		}
 	}
-	return res
 }
 
-// mulColSum add(s * m.col[i])
-func (m Matrix) mulColSum(s []byte, i int) (sum byte) {
-	if debug.Debug() {
-		debug.Equal(len(s), m.rows)
-		debug.Less(i, m.cols)
-	}
+func mulColSum(m []byte, rows int, s []byte, c int) (sum byte) {
+	mCols := len(m) / rows
 	for j, e := range s {
-		v := galois.Mul(e, m.b[j*m.cols+i])
+		v := galois.Mul(e, m[j*mCols+c])
 		sum = galois.Add(sum, v)
 	}
 	return sum
 }
 
-// invert 求取逆矩阵
-func (m Matrix) invert() Matrix {
-	if debug.Debug() {
-		debug.Equal(len(m.b), m.rows*m.cols)
-		debug.Equal(m.rows, m.cols, "require square matrix")
-	}
-
-	n := m.rows
-	// work: [m E]  在m右侧拼接一个单位矩阵
-	work := Make(n, n*2)
+// invert calculate m's invert-matrix
+func invert(dst, work, m []byte, n int) {
 	for r := 0; r < n; r++ {
-		row := work.Row(r)
-		copy(row, m.Row(r))
-		clear(row[n:])
-		row[n+r] = 1
+		copy(work[r*2*n:(r+1)*2*n], m[r*n:(r+1)*n])
+		clear(work[r*2*n+n : (r+1)*2*n])
+		work[r*2*n+n+r] = 1
 	}
-	work.gaussianElimination()
-
-	// 原地裁剪: 将右侧结果搬至左侧
+	gaussianElimination(work, n)
 	for r := 0; r < n; r++ {
-		copy(work.b[r*n:(r+1)*n], work.Row(r)[n:])
+		copy(dst[r*n:(r+1)*n], work[r*2*n+n:(r+1)*2*n])
 	}
-	work.b = work.b[:n*n]
-	work.cols = n
-	return work
 }
 
-// gaussianElimination 高斯消元(原地)
-func (m *Matrix) gaussianElimination() {
-	if debug.Debug() {
-		debug.Equal(len(m.b), m.rows*m.cols)
+func swapRow(m []byte, rows int, r1, r2 int) {
+	if r1 == r2 {
+		return
 	}
-	cols := m.cols
-	for r := 0; r < m.rows; r++ {
-		row := m.Row(r)
+	cols := len(m) / rows
+	a := m[r1*cols : (r1+1)*cols]
+	b := m[r2*cols : (r2+1)*cols]
+	for i := range a {
+		a[i], b[i] = b[i], a[i]
+	}
+}
+
+func gaussianElimination(m []byte, rows int) {
+	cols := len(m) / rows
+	for r := 0; r < rows; r++ {
+		row := m[r*cols : (r+1)*cols]
 		if row[r] == 0 {
-			for r2 := r + 1; r2 < m.rows; r2++ {
-				if m.Row(r2)[r] != 0 {
-					m.swapRow(r, r2)
-					row = m.Row(r)
+			for r2 := r + 1; r2 < rows; r2++ {
+				if m[r2*cols+r] != 0 {
+					swapRow(m, rows, r, r2)
+					row = m[r*cols : (r+1)*cols]
 					break
 				}
 			}
 		}
 		if row[r] == 0 {
-			panic("") // 不可逆矩阵(奇异矩阵)
+			panic("")
 		}
 
 		if row[r] != 1 {
@@ -199,8 +95,8 @@ func (m *Matrix) gaussianElimination() {
 				row[c] = galois.Mul(row[c], q)
 			}
 		}
-		for r2 := r + 1; r2 < m.rows; r2++ {
-			row2 := m.Row(r2)
+		for r2 := r + 1; r2 < rows; r2++ {
+			row2 := m[r2*cols : (r2+1)*cols]
 			q := row2[r]
 			if q != 0 {
 				for c := 0; c < cols; c++ {
@@ -210,10 +106,10 @@ func (m *Matrix) gaussianElimination() {
 		}
 	}
 
-	for r := 0; r < m.rows; r++ {
-		row := m.Row(r)
+	for r := 0; r < rows; r++ {
+		row := m[r*cols : (r+1)*cols]
 		for r2 := 0; r2 < r; r2++ {
-			row2 := m.Row(r2)
+			row2 := m[r2*cols : (r2+1)*cols]
 			q := row2[r]
 			if q != 0 {
 				for c := 0; c < cols; c++ {
@@ -222,4 +118,22 @@ func (m *Matrix) gaussianElimination() {
 			}
 		}
 	}
+}
+
+func delRows(m []byte, rows int, idxs ...int) int {
+	if len(idxs) == 0 {
+		return rows
+	}
+	cols := len(m) / rows
+	w := 0
+	for r := 0; r < rows; r++ {
+		if slices.Contains(idxs, r) {
+			continue
+		}
+		if w != r {
+			copy(m[w*cols:(w+1)*cols], m[r*cols:(r+1)*cols])
+		}
+		w++
+	}
+	return w
 }
