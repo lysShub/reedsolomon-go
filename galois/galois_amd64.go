@@ -45,7 +45,6 @@ func mulVect_smid(c byte, i, o []byte) {
 			loT := archsimd.LoadUint8x16Array(&t.lo)
 			hiT := archsimd.LoadUint8x16Array(&t.hi)
 			mask := archsimd.BroadcastUint8x16(0x0f)
-			shiftVec := archsimd.BroadcastUint64x2(4)
 
 			for n >= 64 {
 				v0 := archsimd.LoadUint8x16Array((*[16]uint8)(unsafe.Add(iPtr, 16*0)))
@@ -57,10 +56,10 @@ func mulVect_smid(c byte, i, o []byte) {
 				l1 := v1.And(mask)
 				l2 := v2.And(mask)
 				l3 := v3.And(mask)
-				h0 := v0.ReshapeToUint64s().ShiftRight(shiftVec).ReshapeToUint8s().And(mask)
-				h1 := v1.ReshapeToUint64s().ShiftRight(shiftVec).ReshapeToUint8s().And(mask)
-				h2 := v2.ReshapeToUint64s().ShiftRight(shiftVec).ReshapeToUint8s().And(mask)
-				h3 := v3.ReshapeToUint64s().ShiftRight(shiftVec).ReshapeToUint8s().And(mask)
+				h0 := v0.ReshapeToUint64s().ShiftAllRight(4).ReshapeToUint8s().And(mask)
+				h1 := v1.ReshapeToUint64s().ShiftAllRight(4).ReshapeToUint8s().And(mask)
+				h2 := v2.ReshapeToUint64s().ShiftAllRight(4).ReshapeToUint8s().And(mask)
+				h3 := v3.ReshapeToUint64s().ShiftAllRight(4).ReshapeToUint8s().And(mask)
 
 				loT.PermuteOrZero(l0.BitsToInt8()).Xor(hiT.PermuteOrZero(h0.BitsToInt8())).StoreArray((*[16]uint8)(unsafe.Add(oPtr, 16*0)))
 				loT.PermuteOrZero(l1.BitsToInt8()).Xor(hiT.PermuteOrZero(h1.BitsToInt8())).StoreArray((*[16]uint8)(unsafe.Add(oPtr, 16*1)))
@@ -76,7 +75,7 @@ func mulVect_smid(c byte, i, o []byte) {
 				v0 := archsimd.LoadUint8x16Array((*[16]uint8)(unsafe.Add(iPtr, 0)))
 
 				l0 := v0.And(mask)
-				h0 := v0.ReshapeToUint64s().ShiftRight(shiftVec).ReshapeToUint8s().And(mask)
+				h0 := v0.ReshapeToUint64s().ShiftAllRight(4).ReshapeToUint8s().And(mask)
 
 				loT.PermuteOrZero(l0.BitsToInt8()).Xor(hiT.PermuteOrZero(h0.BitsToInt8())).StoreArray((*[16]uint8)(unsafe.Add(oPtr, 0)))
 
@@ -108,7 +107,6 @@ func mulXorVect_smid(c byte, i, o []byte) {
 			loT := archsimd.LoadUint8x16Array(&t.lo)
 			hiT := archsimd.LoadUint8x16Array(&t.hi)
 			mask := archsimd.BroadcastUint8x16(0x0f)
-			shiftVec := archsimd.BroadcastUint64x2(4)
 
 			for n >= 64 {
 				v0 := archsimd.LoadUint8x16Array((*[16]uint8)(unsafe.Add(iPtr, 16*0)))
@@ -125,10 +123,10 @@ func mulXorVect_smid(c byte, i, o []byte) {
 				l1 := v1.And(mask)
 				l2 := v2.And(mask)
 				l3 := v3.And(mask)
-				h0 := v0.ReshapeToUint64s().ShiftRight(shiftVec).ReshapeToUint8s().And(mask)
-				h1 := v1.ReshapeToUint64s().ShiftRight(shiftVec).ReshapeToUint8s().And(mask)
-				h2 := v2.ReshapeToUint64s().ShiftRight(shiftVec).ReshapeToUint8s().And(mask)
-				h3 := v3.ReshapeToUint64s().ShiftRight(shiftVec).ReshapeToUint8s().And(mask)
+				h0 := v0.ReshapeToUint64s().ShiftAllRight(4).ReshapeToUint8s().And(mask)
+				h1 := v1.ReshapeToUint64s().ShiftAllRight(4).ReshapeToUint8s().And(mask)
+				h2 := v2.ReshapeToUint64s().ShiftAllRight(4).ReshapeToUint8s().And(mask)
+				h3 := v3.ReshapeToUint64s().ShiftAllRight(4).ReshapeToUint8s().And(mask)
 
 				loT.PermuteOrZero(l0.BitsToInt8()).Xor(hiT.PermuteOrZero(h0.BitsToInt8())).Xor(e0).StoreArray((*[16]uint8)(unsafe.Add(oPtr, 16*0)))
 				loT.PermuteOrZero(l1.BitsToInt8()).Xor(hiT.PermuteOrZero(h1.BitsToInt8())).Xor(e1).StoreArray((*[16]uint8)(unsafe.Add(oPtr, 16*1)))
@@ -145,7 +143,7 @@ func mulXorVect_smid(c byte, i, o []byte) {
 				e0 := archsimd.LoadUint8x16Array((*[16]uint8)(unsafe.Add(oPtr, 0)))
 
 				l0 := v0.And(mask)
-				h0 := v0.ReshapeToUint64s().ShiftRight(shiftVec).ReshapeToUint8s().And(mask)
+				h0 := v0.ReshapeToUint64s().ShiftAllRight(4).ReshapeToUint8s().And(mask)
 
 				loT.PermuteOrZero(l0.BitsToInt8()).Xor(hiT.PermuteOrZero(h0.BitsToInt8())).Xor(e0).StoreArray((*[16]uint8)(unsafe.Add(oPtr, 0)))
 
