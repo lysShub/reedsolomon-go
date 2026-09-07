@@ -16,7 +16,6 @@ jobs:
         with:
           go-version-file: go.mod
           cache: true
-      - run: go install golang.org/x/perf/cmd/benchstat@latest
 
       - name: checkout base
         uses: actions/checkout@v6
@@ -33,39 +32,9 @@ jobs:
 
       - name: compare & gate
         run: |
-          benchstat base/base.txt head.txt | tee benchstat.txt
-          python3 - <<'PY'
-          import re, sys
-
-          def bench_names(path):
-              names = set()
-              for line in open(path):
-                  m = re.match(r'^(Benchmark\S+)-\d+', line)
-                  if m:
-                      names.add(m.group(1))
-              return names
-
-          base = bench_names('base/base.txt')
-          head = bench_names('head.txt')
-
-          fail = False
-
-          deleted = base - head
-          if deleted:
-              print('DELETED benchmarks:')
-              for name in sorted(deleted):
-                  print('  ' + name)
-              fail = True
-
-          for line in open('benchstat.txt'):
-              for m in re.finditer(r'\+(\d+\.?\d*)%', line):
-                  if float(m.group(1)) > 5.0:
-                      print('REGRESSION:', line.strip())
-                      fail = True
-
-          sys.exit(1 if fail else 0)
-          PY
+          cd .github/benchdiff
+          go run . "$GITHUB_WORKSPACE/base/base.txt" "$GITHUB_WORKSPACE/head.txt" | tee "$GITHUB_WORKSPACE/result.txt"
 
       - name: post summary
         if: always()
-        run: cat benchstat.txt >> $GITHUB_STEP_SUMMARY
+        run: cat result.txt >> $GITHUB_STEP_SUMMARY
