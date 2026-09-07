@@ -6,7 +6,9 @@ import (
 	"github.com/lysShub/bytespool-go"
 )
 
-var Pooler bytespool.Pooler[[]byte, byte] = bytespool.Pool[[]byte, byte]{}
+type pooler bytespool.Pooler[[]byte, byte]
+
+var Pooler pooler = bytespool.Pool[[]byte, byte]{}
 
 func Encodec(matrix []byte, grousize, datasize uint8, idxs ...uint8) int {
 	g, d := int(grousize), int(datasize)
@@ -37,7 +39,7 @@ func encodeMatrixBuf(dst, buf []byte, g, d int) int {
 	for i := range idxs[:d] {
 		idxs[i] = i
 	}
-	rows := delRows(dst, g, idxs[:d]...)
+	rows := delRows(dst[:g*d], g, idxs[:d]...)
 	return rows * d
 }
 
@@ -64,7 +66,7 @@ func decodeMatrixBuf(dst, buf []byte, g, d int, indexs []uint8) int {
 			delN++
 		}
 	}
-	n := delRows(dst, g, del[:delN]...)
+	n := delRows(dst[:g*d], g, del[:delN]...)
 
 	inv := buf[g*d : g*d+d*d]
 	work := buf[g*d+2*d*d : g*d+4*d*d]

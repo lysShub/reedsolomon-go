@@ -63,6 +63,33 @@ func Test_Encodec(t *testing.T) {
 	}
 }
 
+func Test_Encodec_255_254(t *testing.T) {
+	idxs := make([]uint8, 0, 255)
+	for i := uint8(0); i < 255; i++ {
+		if i != 31 {
+			idxs = append(idxs, i)
+		}
+	}
+
+	act := make([]byte, 255*254)
+	n := Encodec(act, 255, 254, idxs...)
+
+	rows := lossDatablocks(254, idxs)
+	if n != rows*254 {
+		t.Fatalf("shape mismatch: want %dx254=%d, got %d", rows, rows*254, n)
+	}
+	nonZero := false
+	for _, v := range act[:n] {
+		if v != 0 {
+			nonZero = true
+			break
+		}
+	}
+	if !nonZero {
+		t.Fatal("all-zero matrix")
+	}
+}
+
 func Test_Encodec_String(t *testing.T) {
 	dst := make([]byte, 8*5)
 
