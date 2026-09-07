@@ -6,11 +6,6 @@ import (
 	"github.com/lysShub/bytespool-go"
 )
 
-func TestXxxx(t *testing.T) {
-	const g = 24
-	const maxb = g*(g-1) + 4*(g-1)*(g-1)
-}
-
 func Test_Encodec(t *testing.T) {
 	cases := []struct {
 		g, d uint8

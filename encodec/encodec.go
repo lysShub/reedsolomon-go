@@ -4,6 +4,7 @@ import (
 	"slices"
 
 	"github.com/lysShub/bytespool-go"
+	"github.com/lysShub/debug-go"
 )
 
 type pooler bytespool.Pooler[[]byte, byte]
@@ -12,10 +13,15 @@ var Pooler pooler = bytespool.Pool[[]byte, byte]{}
 
 func Encodec(matrix []byte, grousize, datasize uint8, idxs ...uint8) int {
 	g, d := int(grousize), int(datasize)
+
+	if debug.Debug() {
+		debug.GreaterOrEqual(len(matrix), g*d)
+	}
 	if len(idxs) == 0 {
 		return encodeMatrix(matrix, g, d)
+	} else {
+		return decodeMatrix(matrix, g, d, idxs)
 	}
-	return decodeMatrix(matrix, g, d, idxs)
 }
 
 const stackAlloc = 1024 + 512
