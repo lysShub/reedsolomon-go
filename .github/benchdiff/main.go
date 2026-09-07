@@ -3,25 +3,44 @@ package main
 import (
 	"fmt"
 	"os"
+	"sort"
 
 	"golang.org/x/tools/benchmark/parse"
 )
+
+type row struct {
+	name  string
+	delta float64
+	ok    bool
+}
 
 func main() {
 	base := load(os.Args[1])
 	head := load(os.Args[2])
 
-	fail := false
+	rows := make([]row, 0, len(base))
 	for name, ns := range base {
 		hns, ok := head[name]
-		if !ok {
-			fmt.Printf("DELETED: %s\n", name)
+		rows = append(rows, row{name, (hns - ns) / ns * 100, ok})
+	}
+	sort.Slice(rows, func(i, j int) bool { return rows[i].name < rows[j].name })
+
+	max := 0
+	for _, r := range rows {
+		if len(r.name) > max {
+			max = len(r.name)
+		}
+	}
+
+	fail := false
+	for _, r := range rows {
+		if !r.ok {
+			fmt.Printf("%-*s  DELETED\n", max, r.name)
 			fail = true
 			continue
 		}
-		delta := (hns - ns) / ns * 100
-		fmt.Printf("%s  %+.2f%%\n", name, delta)
-		if delta > 5.0 {
+		fmt.Printf("%-*s  %+.2f%%\n", max, r.name, r.delta)
+		if r.delta > 5.0 {
 			fail = true
 		}
 	}
