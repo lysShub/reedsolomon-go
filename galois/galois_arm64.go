@@ -1,33 +1,20 @@
-//go:build amd64
-// +build amd64
+//go:build arm64
+// +build arm64
 
 package galois
 
 import (
+	"encoding/binary"
 	"math/bits"
 	"simd/archsimd"
 	"unsafe"
-
-	"golang.org/x/sys/cpu"
 )
 
 func init() {
-	if cpu.X86.HasAVX512GFNI {
-		mulVect = mulVect_gfni
-		mulXorVect = mulXorVect_gfni
-		lastIndex = lastIndex_smid
-		xorVect = xorVect_smid
-	} else if cpu.X86.HasSSE2 {
-		mulVect = mulVect_smid
-		mulXorVect = mulXorVect_smid
-		lastIndex = lastIndex_smid
-		xorVect = xorVect_smid
-	} else {
-		mulVect = mulVect_go
-		mulXorVect = mulXorVect_go
-		lastIndex = lastIndex_go
-		xorVect = xorVect_go
-	}
+	mulVect = mulVect_smid
+	mulXorVect = mulXorVect_smid
+	lastIndex = lastIndex_smid
+	xorVect = xorVect_smid
 }
 
 func mulVect_smid(c byte, i, o []byte) {
@@ -61,10 +48,10 @@ func mulVect_smid(c byte, i, o []byte) {
 				h2 := v2.ReshapeToUint64s().ShiftAllRight(4).ReshapeToUint8s().And(mask)
 				h3 := v3.ReshapeToUint64s().ShiftAllRight(4).ReshapeToUint8s().And(mask)
 
-				loT.PermuteOrZero(l0.BitsToInt8()).Xor(hiT.PermuteOrZero(h0.BitsToInt8())).StoreArray((*[16]uint8)(unsafe.Add(oPtr, 16*0)))
-				loT.PermuteOrZero(l1.BitsToInt8()).Xor(hiT.PermuteOrZero(h1.BitsToInt8())).StoreArray((*[16]uint8)(unsafe.Add(oPtr, 16*1)))
-				loT.PermuteOrZero(l2.BitsToInt8()).Xor(hiT.PermuteOrZero(h2.BitsToInt8())).StoreArray((*[16]uint8)(unsafe.Add(oPtr, 16*2)))
-				loT.PermuteOrZero(l3.BitsToInt8()).Xor(hiT.PermuteOrZero(h3.BitsToInt8())).StoreArray((*[16]uint8)(unsafe.Add(oPtr, 16*3)))
+				loT.LookupOrZero(l0.BitsToInt8().ConvertToUint8()).Xor(hiT.LookupOrZero(h0.BitsToInt8().ConvertToUint8())).StoreArray((*[16]uint8)(unsafe.Add(oPtr, 16*0)))
+				loT.LookupOrZero(l1.BitsToInt8().ConvertToUint8()).Xor(hiT.LookupOrZero(h1.BitsToInt8().ConvertToUint8())).StoreArray((*[16]uint8)(unsafe.Add(oPtr, 16*1)))
+				loT.LookupOrZero(l2.BitsToInt8().ConvertToUint8()).Xor(hiT.LookupOrZero(h2.BitsToInt8().ConvertToUint8())).StoreArray((*[16]uint8)(unsafe.Add(oPtr, 16*2)))
+				loT.LookupOrZero(l3.BitsToInt8().ConvertToUint8()).Xor(hiT.LookupOrZero(h3.BitsToInt8().ConvertToUint8())).StoreArray((*[16]uint8)(unsafe.Add(oPtr, 16*3)))
 
 				iPtr = unsafe.Add(iPtr, 64)
 				oPtr = unsafe.Add(oPtr, 64)
@@ -77,7 +64,7 @@ func mulVect_smid(c byte, i, o []byte) {
 				l0 := v0.And(mask)
 				h0 := v0.ReshapeToUint64s().ShiftAllRight(4).ReshapeToUint8s().And(mask)
 
-				loT.PermuteOrZero(l0.BitsToInt8()).Xor(hiT.PermuteOrZero(h0.BitsToInt8())).StoreArray((*[16]uint8)(unsafe.Add(oPtr, 0)))
+				loT.LookupOrZero(l0.BitsToInt8().ConvertToUint8()).Xor(hiT.LookupOrZero(h0.BitsToInt8().ConvertToUint8())).StoreArray((*[16]uint8)(unsafe.Add(oPtr, 0)))
 
 				iPtr = unsafe.Add(iPtr, 16)
 				oPtr = unsafe.Add(oPtr, 16)
@@ -93,7 +80,6 @@ func mulVect_smid(c byte, i, o []byte) {
 		}
 	}
 }
-
 func mulXorVect_smid(c byte, i, o []byte) {
 	n := len(i)
 	switch c {
@@ -129,10 +115,10 @@ func mulXorVect_smid(c byte, i, o []byte) {
 				h2 := v2.ReshapeToUint64s().ShiftAllRight(4).ReshapeToUint8s().And(mask)
 				h3 := v3.ReshapeToUint64s().ShiftAllRight(4).ReshapeToUint8s().And(mask)
 
-				loT.PermuteOrZero(l0.BitsToInt8()).Xor(hiT.PermuteOrZero(h0.BitsToInt8())).Xor(e0).StoreArray((*[16]uint8)(unsafe.Add(oPtr, 16*0)))
-				loT.PermuteOrZero(l1.BitsToInt8()).Xor(hiT.PermuteOrZero(h1.BitsToInt8())).Xor(e1).StoreArray((*[16]uint8)(unsafe.Add(oPtr, 16*1)))
-				loT.PermuteOrZero(l2.BitsToInt8()).Xor(hiT.PermuteOrZero(h2.BitsToInt8())).Xor(e2).StoreArray((*[16]uint8)(unsafe.Add(oPtr, 16*2)))
-				loT.PermuteOrZero(l3.BitsToInt8()).Xor(hiT.PermuteOrZero(h3.BitsToInt8())).Xor(e3).StoreArray((*[16]uint8)(unsafe.Add(oPtr, 16*3)))
+				loT.LookupOrZero(l0.BitsToInt8().ConvertToUint8()).Xor(hiT.LookupOrZero(h0.BitsToInt8().ConvertToUint8())).Xor(e0).StoreArray((*[16]uint8)(unsafe.Add(oPtr, 16*0)))
+				loT.LookupOrZero(l1.BitsToInt8().ConvertToUint8()).Xor(hiT.LookupOrZero(h1.BitsToInt8().ConvertToUint8())).Xor(e1).StoreArray((*[16]uint8)(unsafe.Add(oPtr, 16*1)))
+				loT.LookupOrZero(l2.BitsToInt8().ConvertToUint8()).Xor(hiT.LookupOrZero(h2.BitsToInt8().ConvertToUint8())).Xor(e2).StoreArray((*[16]uint8)(unsafe.Add(oPtr, 16*2)))
+				loT.LookupOrZero(l3.BitsToInt8().ConvertToUint8()).Xor(hiT.LookupOrZero(h3.BitsToInt8().ConvertToUint8())).Xor(e3).StoreArray((*[16]uint8)(unsafe.Add(oPtr, 16*3)))
 
 				iPtr = unsafe.Add(iPtr, 64)
 				oPtr = unsafe.Add(oPtr, 64)
@@ -146,7 +132,7 @@ func mulXorVect_smid(c byte, i, o []byte) {
 				l0 := v0.And(mask)
 				h0 := v0.ReshapeToUint64s().ShiftAllRight(4).ReshapeToUint8s().And(mask)
 
-				loT.PermuteOrZero(l0.BitsToInt8()).Xor(hiT.PermuteOrZero(h0.BitsToInt8())).Xor(e0).StoreArray((*[16]uint8)(unsafe.Add(oPtr, 0)))
+				loT.LookupOrZero(l0.BitsToInt8().ConvertToUint8()).Xor(hiT.LookupOrZero(h0.BitsToInt8().ConvertToUint8())).Xor(e0).StoreArray((*[16]uint8)(unsafe.Add(oPtr, 0)))
 
 				iPtr = unsafe.Add(iPtr, 16)
 				oPtr = unsafe.Add(oPtr, 16)
@@ -163,7 +149,6 @@ func mulXorVect_smid(c byte, i, o []byte) {
 		}
 	}
 }
-
 func xorVect_smid(i, o []byte) {
 	n := len(i)
 	iPtr := unsafe.Pointer(unsafe.SliceData(i))
@@ -205,7 +190,6 @@ func xorVect_smid(i, o []byte) {
 		tailO[i] ^= e
 	}
 }
-
 func lastIndex_smid(s []byte, v byte) int {
 	n := len(s)
 	if n == 0 {
@@ -229,17 +213,17 @@ func lastIndex_smid(s []byte, v byte) int {
 		m2 := v2.Equal(broad)
 		m3 := v3.Equal(broad)
 
-		if m0.Or(m1).Or(m2).Or(m3).ToBits() != 0 {
-			if m := m3.ToBits(); m != 0 {
+		if m0.Or(m1).Or(m2).Or(m3).ToInt8x16().ConvertToUint8().ReduceSum() != 0 {
+			if m := maskToBits(m3); m != 0 {
 				return int(uintptr(ptr)-uintptr(src)) + 16*3 + bits.Len16(m) - 1
 			}
-			if m := m2.ToBits(); m != 0 {
+			if m := maskToBits(m2); m != 0 {
 				return int(uintptr(ptr)-uintptr(src)) + 16*2 + bits.Len16(m) - 1
 			}
-			if m := m1.ToBits(); m != 0 {
+			if m := maskToBits(m1); m != 0 {
 				return int(uintptr(ptr)-uintptr(src)) + 16*1 + bits.Len16(m) - 1
 			}
-			if m := m0.ToBits(); m != 0 {
+			if m := maskToBits(m0); m != 0 {
 				return int(uintptr(ptr)-uintptr(src)) + 16*0 + bits.Len16(m) - 1
 			}
 		}
@@ -249,7 +233,7 @@ func lastIndex_smid(s []byte, v byte) int {
 		ptr = unsafe.Add(ptr, -16)
 		n -= 16
 		v := archsimd.LoadUint8x16Array((*[16]uint8)(ptr))
-		if m := v.Equal(broad).ToBits(); m != 0 {
+		if m := maskToBits(v.Equal(broad)); m != 0 {
 			return int(uintptr(ptr)-uintptr(src)) + bits.Len16(m) - 1
 		}
 	}
@@ -262,99 +246,11 @@ func lastIndex_smid(s []byte, v byte) int {
 	return -1
 }
 
-func mulVect_gfni(c byte, i, o []byte) {
-	n := len(i)
-	switch c {
-	case 0:
-		clear(o[:n])
-	case 1:
-		copy(o[:n], i)
-	default:
-		iPtr := unsafe.Pointer(unsafe.SliceData(i))
-		oPtr := unsafe.Pointer(unsafe.SliceData(o))
+func maskToBits(m archsimd.Mask8x16) uint16 {
+	var b [16]uint8
+	m.ToInt8x16().ConvertToUint8().StoreArray(&b)
 
-		cVec := archsimd.BroadcastUint8x64(c)
-		for n >= 256 {
-			v0 := archsimd.LoadUint8x64Array((*[64]uint8)(unsafe.Add(iPtr, 64*0)))
-			v1 := archsimd.LoadUint8x64Array((*[64]uint8)(unsafe.Add(iPtr, 64*1)))
-			v2 := archsimd.LoadUint8x64Array((*[64]uint8)(unsafe.Add(iPtr, 64*2)))
-			v3 := archsimd.LoadUint8x64Array((*[64]uint8)(unsafe.Add(iPtr, 64*3)))
-
-			v0.GaloisFieldMul(cVec).StoreArray((*[64]uint8)(unsafe.Add(oPtr, 64*0)))
-			v1.GaloisFieldMul(cVec).StoreArray((*[64]uint8)(unsafe.Add(oPtr, 64*1)))
-			v2.GaloisFieldMul(cVec).StoreArray((*[64]uint8)(unsafe.Add(oPtr, 64*2)))
-			v3.GaloisFieldMul(cVec).StoreArray((*[64]uint8)(unsafe.Add(oPtr, 64*3)))
-
-			iPtr = unsafe.Add(iPtr, 256)
-			oPtr = unsafe.Add(oPtr, 256)
-			n -= 256
-		}
-
-		for n >= 64 {
-			v0 := archsimd.LoadUint8x64Array((*[64]uint8)(iPtr))
-			v0.GaloisFieldMul(cVec).StoreArray((*[64]uint8)(oPtr))
-
-			iPtr = unsafe.Add(iPtr, 64)
-			oPtr = unsafe.Add(oPtr, 64)
-			n -= 64
-		}
-
-		tailI := unsafe.Slice((*uint8)(iPtr), n)
-		tailO := unsafe.Slice((*uint8)(oPtr), n)
-		t := _mulTable.Load()[c]
-		for k := range tailI {
-			tailO[k] = t[tailI[k]]
-		}
-	}
-}
-
-func mulXorVect_gfni(c byte, i, o []byte) {
-	n := len(i)
-	switch c {
-	case 0:
-	case 1:
-		XorVect(i, o)
-	default:
-		iPtr := unsafe.Pointer(unsafe.SliceData(i))
-		oPtr := unsafe.Pointer(unsafe.SliceData(o))
-
-		cVec := archsimd.BroadcastUint8x64(c)
-		for n >= 256 {
-			v0 := archsimd.LoadUint8x64Array((*[64]uint8)(unsafe.Add(iPtr, 64*0)))
-			v1 := archsimd.LoadUint8x64Array((*[64]uint8)(unsafe.Add(iPtr, 64*1)))
-			v2 := archsimd.LoadUint8x64Array((*[64]uint8)(unsafe.Add(iPtr, 64*2)))
-			v3 := archsimd.LoadUint8x64Array((*[64]uint8)(unsafe.Add(iPtr, 64*3)))
-
-			e0 := archsimd.LoadUint8x64Array((*[64]uint8)(unsafe.Add(oPtr, 64*0)))
-			e1 := archsimd.LoadUint8x64Array((*[64]uint8)(unsafe.Add(oPtr, 64*1)))
-			e2 := archsimd.LoadUint8x64Array((*[64]uint8)(unsafe.Add(oPtr, 64*2)))
-			e3 := archsimd.LoadUint8x64Array((*[64]uint8)(unsafe.Add(oPtr, 64*3)))
-
-			v0.GaloisFieldMul(cVec).Xor(e0).StoreArray((*[64]uint8)(unsafe.Add(oPtr, 64*0)))
-			v1.GaloisFieldMul(cVec).Xor(e1).StoreArray((*[64]uint8)(unsafe.Add(oPtr, 64*1)))
-			v2.GaloisFieldMul(cVec).Xor(e2).StoreArray((*[64]uint8)(unsafe.Add(oPtr, 64*2)))
-			v3.GaloisFieldMul(cVec).Xor(e3).StoreArray((*[64]uint8)(unsafe.Add(oPtr, 64*3)))
-
-			iPtr = unsafe.Add(iPtr, 256)
-			oPtr = unsafe.Add(oPtr, 256)
-			n -= 256
-		}
-
-		for n >= 64 {
-			v0 := archsimd.LoadUint8x64Array((*[64]uint8)(iPtr))
-			e0 := archsimd.LoadUint8x64Array((*[64]uint8)(oPtr))
-			v0.GaloisFieldMul(cVec).Xor(e0).StoreArray((*[64]uint8)(oPtr))
-
-			iPtr = unsafe.Add(iPtr, 64)
-			oPtr = unsafe.Add(oPtr, 64)
-			n -= 64
-		}
-
-		tailI := unsafe.Slice((*uint8)(iPtr), n)
-		tailO := unsafe.Slice((*uint8)(oPtr), n)
-		t := _mulTable.Load()[c]
-		for k := range tailI {
-			tailO[k] ^= t[tailI[k]]
-		}
-	}
+	lo := binary.LittleEndian.Uint64(b[:8])
+	hi := binary.LittleEndian.Uint64(b[8:])
+	return uint16(((lo&0x0101010101010101)*0x0102040810204080)>>56 | ((hi&0x0101010101010101)*0x0102040810204080)>>56<<8)
 }
