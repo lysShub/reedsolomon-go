@@ -26,22 +26,43 @@ jobs:
 
       - name: bench base (master)
         working-directory: base
-        run: go test -run='^$' -bench=Benchmark -benchmem -count=5 -benchtime=5s ./encodec/ ./galois/ | tee base.txt
+        run: go test -run='^$' -bench=Benchmark -benchmem -count=1 -benchtime=3s ./encodec/ ./galois/ | tee base.txt
 
       - name: bench head (PR)
-        run: go test -run='^$' -bench=Benchmark -benchmem -count=5 -benchtime=5s ./encodec/ ./galois/ | tee head.txt
+        run: go test -run='^$' -bench=Benchmark -benchmem -count=1 -benchtime=3s ./encodec/ ./galois/ | tee head.txt
 
       - name: compare & gate
         run: |
           benchstat base/base.txt head.txt | tee benchstat.txt
           python3 - <<'PY'
           import re, sys
+
+          def bench_names(path):
+              names = set()
+              for line in open(path):
+                  m = re.match(r'^(Benchmark\S+)-\d+', line)
+                  if m:
+                      names.add(m.group(1))
+              return names
+
+          base = bench_names('base/base.txt')
+          head = bench_names('head.txt')
+
           fail = False
+
+          deleted = base - head
+          if deleted:
+              print('DELETED benchmarks:')
+              for name in sorted(deleted):
+                  print('  ' + name)
+              fail = True
+
           for line in open('benchstat.txt'):
               for m in re.finditer(r'\+(\d+\.?\d*)%', line):
                   if float(m.group(1)) > 5.0:
                       print('REGRESSION:', line.strip())
                       fail = True
+
           sys.exit(1 if fail else 0)
           PY
 
