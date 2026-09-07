@@ -1,0 +1,50 @@
+name: bench
+
+on:
+  pull_request:
+  push:
+    branches: [master]
+
+jobs:
+  bench:
+    runs-on: ubuntu-latest
+    env:
+      GOEXPERIMENT: simd
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+      - run: go install golang.org/x/perf/cmd/benchstat@latest
+
+      - name: checkout base
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.base.sha || github.event.before }}
+          path: base
+
+      - name: bench base (master)
+        working-directory: base
+        run: go test -run='^$' -bench=Benchmark -benchmem -count=5 -benchtime=5s ./encodec/ ./galois/ | tee base.txt
+
+      - name: bench head (PR)
+        run: go test -run='^$' -bench=Benchmark -benchmem -count=5 -benchtime=5s ./encodec/ ./galois/ | tee head.txt
+
+      - name: compare & gate
+        run: |
+          benchstat base/base.txt head.txt | tee benchstat.txt
+          python3 - <<'PY'
+          import re, sys
+          fail = False
+          for line in open('benchstat.txt'):
+              for m in re.finditer(r'\+(\d+\.?\d*)%', line):
+                  if float(m.group(1)) > 5.0:
+                      print('REGRESSION:', line.strip())
+                      fail = True
+          sys.exit(1 if fail else 0)
+          PY
+
+      - name: post summary
+        if: always()
+        run: cat benchstat.txt >> $GITHUB_STEP_SUMMARY
