@@ -11,17 +11,32 @@ import (
 type row struct {
 	name  string
 	delta float64
-	ok    bool
 }
 
 func main() {
 	base := load(os.Args[1])
 	head := load(os.Args[2])
 
-	rows := make([]row, 0, len(base))
-	for name, ns := range base {
-		hns, ok := head[name]
-		rows = append(rows, row{name, (hns - ns) / ns * 100, ok})
+	names := make(map[string]bool, len(base)+len(head))
+	for n := range base {
+		names[n] = true
+	}
+	for n := range head {
+		names[n] = true
+	}
+
+	rows := make([]row, 0, len(names))
+	for name := range names {
+		bns, bOk := base[name]
+		hns, hOk := head[name]
+		switch {
+		case !bOk:
+			rows = append(rows, row{name, +100})
+		case !hOk:
+			rows = append(rows, row{name, -100})
+		default:
+			rows = append(rows, row{name, (bns - hns) / bns * 100})
+		}
 	}
 	sort.Slice(rows, func(i, j int) bool { return rows[i].name < rows[j].name })
 
@@ -34,15 +49,8 @@ func main() {
 
 	fail := false
 	for _, r := range rows {
-		if !r.ok {
-			fmt.Printf("%-*s  DELETED\n", max, r.name)
-			fail = true
-			continue
-		}
 		fmt.Printf("%-*s  %+.2f%%\n", max, r.name, r.delta)
-		if r.delta > 5.0 {
-			fail = true
-		}
+		fail = fail || r.delta < -5.0
 	}
 	if fail {
 		os.Exit(1)
