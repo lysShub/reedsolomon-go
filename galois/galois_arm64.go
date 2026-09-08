@@ -4,7 +4,6 @@
 package galois
 
 import (
-	"encoding/binary"
 	"math/bits"
 	"simd/archsimd"
 	"unsafe"
@@ -48,10 +47,10 @@ func mulVect_smid(c byte, i, o []byte) {
 				h2 := v2.ReshapeToUint64s().ShiftAllRight(4).ReshapeToUint8s().And(mask)
 				h3 := v3.ReshapeToUint64s().ShiftAllRight(4).ReshapeToUint8s().And(mask)
 
-				loT.LookupOrZero(l0.BitsToInt8().ConvertToUint8()).Xor(hiT.LookupOrZero(h0.BitsToInt8().ConvertToUint8())).StoreArray((*[16]uint8)(unsafe.Add(oPtr, 16*0)))
-				loT.LookupOrZero(l1.BitsToInt8().ConvertToUint8()).Xor(hiT.LookupOrZero(h1.BitsToInt8().ConvertToUint8())).StoreArray((*[16]uint8)(unsafe.Add(oPtr, 16*1)))
-				loT.LookupOrZero(l2.BitsToInt8().ConvertToUint8()).Xor(hiT.LookupOrZero(h2.BitsToInt8().ConvertToUint8())).StoreArray((*[16]uint8)(unsafe.Add(oPtr, 16*2)))
-				loT.LookupOrZero(l3.BitsToInt8().ConvertToUint8()).Xor(hiT.LookupOrZero(h3.BitsToInt8().ConvertToUint8())).StoreArray((*[16]uint8)(unsafe.Add(oPtr, 16*3)))
+				loT.LookupOrZero(l0).Xor(hiT.LookupOrZero(h0)).StoreArray((*[16]uint8)(unsafe.Add(oPtr, 16*0)))
+				loT.LookupOrZero(l1).Xor(hiT.LookupOrZero(h1)).StoreArray((*[16]uint8)(unsafe.Add(oPtr, 16*1)))
+				loT.LookupOrZero(l2).Xor(hiT.LookupOrZero(h2)).StoreArray((*[16]uint8)(unsafe.Add(oPtr, 16*2)))
+				loT.LookupOrZero(l3).Xor(hiT.LookupOrZero(h3)).StoreArray((*[16]uint8)(unsafe.Add(oPtr, 16*3)))
 
 				iPtr = unsafe.Add(iPtr, 64)
 				oPtr = unsafe.Add(oPtr, 64)
@@ -64,7 +63,7 @@ func mulVect_smid(c byte, i, o []byte) {
 				l0 := v0.And(mask)
 				h0 := v0.ReshapeToUint64s().ShiftAllRight(4).ReshapeToUint8s().And(mask)
 
-				loT.LookupOrZero(l0.BitsToInt8().ConvertToUint8()).Xor(hiT.LookupOrZero(h0.BitsToInt8().ConvertToUint8())).StoreArray((*[16]uint8)(unsafe.Add(oPtr, 0)))
+				loT.LookupOrZero(l0).Xor(hiT.LookupOrZero(h0)).StoreArray((*[16]uint8)(unsafe.Add(oPtr, 0)))
 
 				iPtr = unsafe.Add(iPtr, 16)
 				oPtr = unsafe.Add(oPtr, 16)
@@ -115,10 +114,10 @@ func mulXorVect_smid(c byte, i, o []byte) {
 				h2 := v2.ReshapeToUint64s().ShiftAllRight(4).ReshapeToUint8s().And(mask)
 				h3 := v3.ReshapeToUint64s().ShiftAllRight(4).ReshapeToUint8s().And(mask)
 
-				loT.LookupOrZero(l0.BitsToInt8().ConvertToUint8()).Xor(hiT.LookupOrZero(h0.BitsToInt8().ConvertToUint8())).Xor(e0).StoreArray((*[16]uint8)(unsafe.Add(oPtr, 16*0)))
-				loT.LookupOrZero(l1.BitsToInt8().ConvertToUint8()).Xor(hiT.LookupOrZero(h1.BitsToInt8().ConvertToUint8())).Xor(e1).StoreArray((*[16]uint8)(unsafe.Add(oPtr, 16*1)))
-				loT.LookupOrZero(l2.BitsToInt8().ConvertToUint8()).Xor(hiT.LookupOrZero(h2.BitsToInt8().ConvertToUint8())).Xor(e2).StoreArray((*[16]uint8)(unsafe.Add(oPtr, 16*2)))
-				loT.LookupOrZero(l3.BitsToInt8().ConvertToUint8()).Xor(hiT.LookupOrZero(h3.BitsToInt8().ConvertToUint8())).Xor(e3).StoreArray((*[16]uint8)(unsafe.Add(oPtr, 16*3)))
+				loT.LookupOrZero(l0).Xor(hiT.LookupOrZero(h0)).Xor(e0).StoreArray((*[16]uint8)(unsafe.Add(oPtr, 16*0)))
+				loT.LookupOrZero(l1).Xor(hiT.LookupOrZero(h1)).Xor(e1).StoreArray((*[16]uint8)(unsafe.Add(oPtr, 16*1)))
+				loT.LookupOrZero(l2).Xor(hiT.LookupOrZero(h2)).Xor(e2).StoreArray((*[16]uint8)(unsafe.Add(oPtr, 16*2)))
+				loT.LookupOrZero(l3).Xor(hiT.LookupOrZero(h3)).Xor(e3).StoreArray((*[16]uint8)(unsafe.Add(oPtr, 16*3)))
 
 				iPtr = unsafe.Add(iPtr, 64)
 				oPtr = unsafe.Add(oPtr, 64)
@@ -132,7 +131,7 @@ func mulXorVect_smid(c byte, i, o []byte) {
 				l0 := v0.And(mask)
 				h0 := v0.ReshapeToUint64s().ShiftAllRight(4).ReshapeToUint8s().And(mask)
 
-				loT.LookupOrZero(l0.BitsToInt8().ConvertToUint8()).Xor(hiT.LookupOrZero(h0.BitsToInt8().ConvertToUint8())).Xor(e0).StoreArray((*[16]uint8)(unsafe.Add(oPtr, 0)))
+				loT.LookupOrZero(l0).Xor(hiT.LookupOrZero(h0)).Xor(e0).StoreArray((*[16]uint8)(unsafe.Add(oPtr, 0)))
 
 				iPtr = unsafe.Add(iPtr, 16)
 				oPtr = unsafe.Add(oPtr, 16)
@@ -247,10 +246,8 @@ func lastIndex_smid(s []byte, v byte) int {
 }
 
 func maskToBits(m archsimd.Mask8x16) uint16 {
-	var b [16]uint8
-	m.ToInt8x16().ConvertToUint8().StoreArray(&b)
-
-	lo := binary.LittleEndian.Uint64(b[:8])
-	hi := binary.LittleEndian.Uint64(b[8:])
+	u := m.ToInt8x16().ConvertToUint8().ReshapeToUint64s()
+	lo := u.GetElem(0)
+	hi := u.GetElem(1)
 	return uint16(((lo&0x0101010101010101)*0x0102040810204080)>>56 | ((hi&0x0101010101010101)*0x0102040810204080)>>56<<8)
 }
