@@ -1,15 +1,11 @@
 package encodec
 
 import (
+	"bytes"
 	"testing"
 
 	"github.com/lysShub/bytespool-go"
 )
-
-func TestXxxx(t *testing.T) {
-	const g = 24
-	const maxb = g*(g-1) + 4*(g-1)*(g-1)
-}
 
 func Test_Encodec(t *testing.T) {
 	cases := []struct {
@@ -63,6 +59,33 @@ func Test_Encodec(t *testing.T) {
 	}
 }
 
+func Test_Encodec_255_254(t *testing.T) {
+	idxs := make([]uint8, 0, 255)
+	for i := uint8(0); i < 255; i++ {
+		if i != 31 {
+			idxs = append(idxs, i)
+		}
+	}
+
+	act := make([]byte, 255*254)
+	n := Encodec(act, 255, 254, idxs...)
+
+	rows := lossDatablocks(254, idxs)
+	if n != rows*254 {
+		t.Fatalf("shape mismatch: want %dx254=%d, got %d", rows, rows*254, n)
+	}
+	nonZero := false
+	for _, v := range act[:n] {
+		if v != 0 {
+			nonZero = true
+			break
+		}
+	}
+	if !nonZero {
+		t.Fatal("all-zero matrix")
+	}
+}
+
 func Test_Encodec_String(t *testing.T) {
 	dst := make([]byte, 8*5)
 
@@ -79,6 +102,21 @@ func Test_Encodec_String(t *testing.T) {
 [174,175,175,  1,174]`
 	if got := matrixString(dst[:n], n/5); got != exp2 {
 		t.Fatalf("act2 mismatch:\n%s", got)
+	}
+}
+
+func Test_swapRow(t *testing.T) {
+	m := []byte{1, 2, 3, 4, 5, 6, 7, 8}
+	exp := append([]byte(nil), m...)
+
+	swapRow(m, 2, 0, 0)
+	if !bytes.Equal(m, exp) {
+		t.Fatalf("swapRow(r1==r2) changed matrix: %v", m)
+	}
+
+	swapRow(m, 2, 0, 1)
+	if !bytes.Equal(m, []byte{5, 6, 7, 8, 1, 2, 3, 4}) {
+		t.Fatalf("swapRow(r1!=r2) wrong: %v", m)
 	}
 }
 

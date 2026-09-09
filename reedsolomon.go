@@ -1,4 +1,4 @@
-// Package reedsolomon encode/reconst
+// reedsolomon encode/reconst
 package reedsolomon
 
 import (
