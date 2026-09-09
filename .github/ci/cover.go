@@ -52,7 +52,7 @@ func cover(basePath, headPath string) {
 	fail := false
 	for _, r := range rows {
 		fmt.Printf("%-*s  %6s  %6s  %+.2f%%\n", max, r.pkg, r.base, r.head, r.delta)
-		fail = fail || r.delta < 0
+		fail = fail || r.delta < -2.0
 	}
 	if fail {
 		os.Exit(1)

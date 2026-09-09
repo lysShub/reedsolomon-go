@@ -2,7 +2,7 @@
 
 _设置 `go env -w GOEXPERIMENT=simd`_
 
-这是专为网络设计 reedsolomon fec, 与其他实现的主要区别是：
+这是专为网络设计的 reedsolomon fec, 与其他实现的主要区别是：
 
 1. 无状态的，支持流式编解码
 2. 不要求 block 长度一致
