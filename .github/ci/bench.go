@@ -13,9 +13,9 @@ type row struct {
 	delta float64
 }
 
-func main() {
-	base := load(os.Args[1])
-	head := load(os.Args[2])
+func bench(basePath, headPath string) {
+	base := load(basePath)
+	head := load(headPath)
 
 	names := make(map[string]bool, len(base)+len(head))
 	for n := range base {
