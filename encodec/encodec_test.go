@@ -1,6 +1,7 @@
 package encodec
 
 import (
+	"bytes"
 	"testing"
 
 	"github.com/lysShub/bytespool-go"
@@ -101,6 +102,21 @@ func Test_Encodec_String(t *testing.T) {
 [174,175,175,  1,174]`
 	if got := matrixString(dst[:n], n/5); got != exp2 {
 		t.Fatalf("act2 mismatch:\n%s", got)
+	}
+}
+
+func Test_swapRow(t *testing.T) {
+	m := []byte{1, 2, 3, 4, 5, 6, 7, 8}
+	exp := append([]byte(nil), m...)
+
+	swapRow(m, 2, 0, 0)
+	if !bytes.Equal(m, exp) {
+		t.Fatalf("swapRow(r1==r2) changed matrix: %v", m)
+	}
+
+	swapRow(m, 2, 0, 1)
+	if !bytes.Equal(m, []byte{5, 6, 7, 8, 1, 2, 3, 4}) {
+		t.Fatalf("swapRow(r1!=r2) wrong: %v", m)
 	}
 }
 
