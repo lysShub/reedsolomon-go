@@ -20,7 +20,7 @@ func mulVect_simd(c byte, i []byte, o []byte) {
 		iPtr := unsafe.Pointer(unsafe.SliceData(i))
 		oPtr := unsafe.Pointer(unsafe.SliceData(o))
 		if n >= 64 {
-			t := &lohiTable()[c]
+			t := &lohiTable[c]
 			loT := archsimd.LoadUint8x16Array(&t.lo)
 			hiT := archsimd.LoadUint8x16Array(&t.hi)
 			mask := archsimd.BroadcastUint8x16(0x0f)
@@ -66,7 +66,7 @@ func mulVect_simd(c byte, i []byte, o []byte) {
 
 		tailI := unsafe.Slice((*uint8)(iPtr), n)
 		tailO := unsafe.Slice((*uint8)(oPtr), n)
-		t := _mulTable.Load()[c]
+		t := mulTable[c]
 		for k := range tailI {
 			tailO[k] = t[tailI[k]]
 		}
@@ -83,7 +83,7 @@ func mulXorVect_simd(c byte, i []byte, o []byte) {
 		iPtr := unsafe.Pointer(unsafe.SliceData(i))
 		oPtr := unsafe.Pointer(unsafe.SliceData(o))
 		if n >= 64 {
-			t := &lohiTable()[c]
+			t := &lohiTable[c]
 			loT := archsimd.LoadUint8x16Array(&t.lo)
 			hiT := archsimd.LoadUint8x16Array(&t.hi)
 			mask := archsimd.BroadcastUint8x16(0x0f)
@@ -136,7 +136,7 @@ func mulXorVect_simd(c byte, i []byte, o []byte) {
 
 		tailI := unsafe.Slice((*uint8)(iPtr), n)
 		tailO := unsafe.Slice((*uint8)(oPtr), n)
-		t := _mulTable.Load()[c]
+		t := mulTable[c]
 		for k := range tailI {
 			tailO[k] ^= t[tailI[k]]
 		}

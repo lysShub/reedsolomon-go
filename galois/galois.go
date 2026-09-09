@@ -9,7 +9,7 @@ import (
 )
 
 func Mul(a, b byte) byte {
-	t := lohiTable()[a]
+	t := lohiTable[a]
 	return t.lo[b&0x0f] ^ t.hi[b>>4]
 }
 func Add(a, b byte) byte { return a ^ b }
@@ -69,7 +69,7 @@ func mulVect_go(c byte, i, o []byte) {
 	case 1:
 		copy(o[:len(i)], i)
 	default:
-		t := mulTable()[c]
+		t := mulTable[c]
 		for idx := range i {
 			o[idx] = t[i[idx]]
 		}
@@ -82,7 +82,7 @@ func mulXorVect_go(c byte, i, o []byte) {
 	case 1:
 		xorVect_go(i, o)
 	default:
-		t := mulTable()[c]
+		t := mulTable[c]
 		for idx := range i {
 			o[idx] ^= t[i[idx]]
 		}

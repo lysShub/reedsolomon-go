@@ -10,7 +10,7 @@ import (
 
 func Test_new_Table(t *testing.T) {
 	{
-		ta := mulTable()
+		ta := &mulTable
 
 		var b = make([]byte, 0, 0xffff)
 		for _, e := range ta {
@@ -24,7 +24,7 @@ func Test_new_Table(t *testing.T) {
 		}
 	}
 	{
-		lh := lohiTable()
+		lh := &lohiTable
 
 		var b = make([]byte, 0, 8192)
 		for _, e := range lh {
@@ -58,13 +58,13 @@ func Test_mul_lowhigh_cross_verify(t *testing.T) {
 		r.Read(in)
 
 		var out1 = make([]byte, len(in))
-		mul := mulTable()[c]
+		mul := mulTable[c]
 		for i, e := range in {
 			out1[i] = mul[e]
 		}
 
 		var out2 = make([]byte, len(in))
-		lohimk := lohiTable()[c]
+		lohimk := lohiTable[c]
 		for i, e := range in {
 			out2[i] = lohimk.lo[e&0x0f] ^ lohimk.hi[e>>4]
 		}

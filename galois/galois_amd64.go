@@ -74,7 +74,7 @@ func mulVect_gfni(c byte, i, o []byte) {
 
 		tailI := unsafe.Slice((*uint8)(iPtr), n)
 		tailO := unsafe.Slice((*uint8)(oPtr), n)
-		t := _mulTable.Load()[c]
+		t := mulTable[c]
 		for k := range tailI {
 			tailO[k] = t[tailI[k]]
 		}
@@ -125,7 +125,7 @@ func mulXorVect_gfni(c byte, i, o []byte) {
 
 		tailI := unsafe.Slice((*uint8)(iPtr), n)
 		tailO := unsafe.Slice((*uint8)(oPtr), n)
-		t := _mulTable.Load()[c]
+		t := mulTable[c]
 		for k := range tailI {
 			tailO[k] ^= t[tailI[k]]
 		}

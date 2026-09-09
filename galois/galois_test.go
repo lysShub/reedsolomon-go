@@ -99,7 +99,7 @@ func Test_Scal(t *testing.T) {
 	t.Run("Mul", func(t *testing.T) {
 		for a := 0; a <= 0xff; a++ {
 			for b := 0; b <= 0xff; b++ {
-				if Mul(byte(a), byte(b)) != mulTable()[byte(a)][byte(b)] {
+				if Mul(byte(a), byte(b)) != mulTable[byte(a)][byte(b)] {
 					t.Fatalf("a=%d b=%d", a, b)
 				}
 			}

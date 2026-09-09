@@ -79,7 +79,7 @@ jobs:
         working-directory: base
         run: go test -run='^$' -bench=Benchmark -benchmem -count=1 -benchtime=3s ./... | tee base.txt
 
-      - name: bench head (PR)
+      - name: bench head (merge)
         run: go test -run='^$' -bench=Benchmark -benchmem -count=1 -benchtime=3s ./... | tee head.txt
 
       - name: compare & gate
@@ -134,7 +134,7 @@ jobs:
         working-directory: base
         run: go test -coverprofile=cover.out ./...
 
-      - name: cover head (PR)
+      - name: cover head (merge)
         run: go test -coverprofile=cover.out ./...
 
       - name: compare & gate
