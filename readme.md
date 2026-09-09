@@ -45,7 +45,7 @@ func main() {
 	}
 	var blocks = append(datas, parity...)
 
-	// mock data packet loss, lost second data-block and first parity-block
+	// mock packet loss, lost second data-block and first parity-block
 	blocks = slices.Delete(blocks, 3, 4)
 	blocks = slices.Delete(blocks, 1, 2)
 
