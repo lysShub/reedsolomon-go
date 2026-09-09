@@ -56,7 +56,7 @@ func (c *cache) matrix(para Para, idxs ...uint8) []byte {
 		return v.m
 	}
 
-	// [newIndexs] is reuse memory, read-only
+	// [newIndexs] is referenced underlying memory, read-only
 	key.indexs = indexs(strings.Clone(string(key.indexs)))
 	val := newCacheval(para, idxs)
 	c.mu.Lock()

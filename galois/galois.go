@@ -1,4 +1,4 @@
-// Package galois 定义伽罗瓦域 GF(2⁸) 中的运算
+// Package galois implements Galois field GF(2^8) arithmetic.
 package galois
 
 import (

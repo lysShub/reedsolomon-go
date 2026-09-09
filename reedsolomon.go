@@ -9,8 +9,8 @@ import (
 )
 
 type Para struct {
-	Groupsize uint8 // 组中所有块数, = 数据块数 + 校验块数
-	Datasize  uint8 // 组中数据块数
+	Groupsize uint8 // total blocks in a group, = data + parity
+	Datasize  uint8 // data  blocks in a group
 }
 
 func (p Para) Paritysize() uint8 { return p.Groupsize - p.Datasize }
@@ -18,12 +18,12 @@ func (p Para) Valid() bool {
 	return p.Groupsize > 0 && p.Datasize > 0 && p.Groupsize >= p.Datasize
 }
 
-// Encode 对第idx个数据块进行编码, 首次编码idx必须为0
+// Encode encoding the idx-th data-block, idx must be 0 on first call.
 //
-//	para  : reedsolomon编码参数
-//	data  : 组中的第idx个数据包
-//	idx   : 此数据包在组中的位置
-//	parity: 存放校验数据块, 要求 len(parity) >= para.Paritysize, 且 len(parity[i]) >= len(data)
+//	para  : reed-solomon encodec parameter
+//	data  : idx-th data-block in the group
+//	idx   : position of this data-block in the group
+//	parity: parity blocks, len(parity) >= para.Paritysize and len(parity[i]) >= len(data)
 func Encode(para Para, data []byte, idx uint8, parity [][]byte) {
 	if debug.Debug() {
 		debug.Less(idx, para.Datasize)
@@ -45,18 +45,18 @@ func Encode(para Para, data []byte, idx uint8, parity [][]byte) {
 	}
 }
 
-// Reconst 恢复丢失的数据块
+// Reconst reconstruct lost data-blocks.
 //
-//	para   : 当前reedsolomon编码参数
-//	blocks : 接收到的编码块, 包含datablock 和 parityblock, 要求是顺序的
-//	indexs : 各编码块对应的位置
-//	reconst: 存放被恢复的数据块, 要求 len(reconst) >= para.Datasize-len(blocks) 且, len(reconst[i]) >= len(blocks[j])
+//	para   : reed-solomon encodec parameter
+//	blocks : received blocks, data and parity block, require are in-ordered
+//	indexs : index of each block
+//	reconst: reconstructed data-blocks, len(reconst) >= para.Datasize-len(blocks) and len(reconst[i]) >= len(blocks[j])
 func Reconst(para Para, blocks [][]byte, indexs []uint8, reconst [][]byte) int {
 	if para.Groupsize == para.Datasize {
-		return 0 // 没有进行rs编码
+		return 0 // no rs encoding
 	}
 	if len(blocks) < int(para.Datasize) {
-		return 0 // 丢失太多编码块, 无法恢复
+		return 0 // too many blocks lost
 	}
 	if debug.Debug() {
 		debug.Equal(len(blocks), len(indexs))
@@ -68,7 +68,7 @@ func Reconst(para Para, blocks [][]byte, indexs []uint8, reconst [][]byte) int {
 	indexs = indexs[:para.Datasize]
 	loss := lossDatablocks(para, indexs)
 	if loss == 0 {
-		return 0 // 无丢失数据块
+		return 0 // no lost data block
 	}
 	if debug.Debug() {
 		debug.GreaterOrEqual(len(reconst), loss)
@@ -99,7 +99,7 @@ func lens(s [][]byte) (lens []int) {
 	return lens
 }
 
-// lossDatablocks 统计丢失数据包个数
+// lossDatablocks counts lost data blocks
 func lossDatablocks(p Para, index []uint8) int {
 	n := 0
 	for _, e := range index {
