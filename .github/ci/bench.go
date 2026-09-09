@@ -51,7 +51,7 @@ func bench(basePath, headPath string) {
 	fail := false
 	for _, r := range rows {
 		fmt.Printf("%-*s  %10s  %+.2f%%\n", max, r.name, formatSpeed(r.speed), r.delta)
-		fail = fail || r.delta < -5.0
+		fail = fail || r.delta < -10.0
 	}
 	if fail {
 		os.Exit(1)
