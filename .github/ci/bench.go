@@ -11,6 +11,7 @@ import (
 type row struct {
 	name  string
 	delta float64
+	speed float64
 }
 
 func bench(basePath, headPath string) {
@@ -31,11 +32,11 @@ func bench(basePath, headPath string) {
 		hns, hOk := head[name]
 		switch {
 		case !bOk:
-			rows = append(rows, row{name, +100})
+			rows = append(rows, row{name, +100, hns.mbps})
 		case !hOk:
-			rows = append(rows, row{name, -100})
+			rows = append(rows, row{name, -100, 0})
 		default:
-			rows = append(rows, row{name, (bns - hns) / bns * 100})
+			rows = append(rows, row{name, (bns.ns - hns.ns) / bns.ns * 100, hns.mbps})
 		}
 	}
 	sort.Slice(rows, func(i, j int) bool { return rows[i].name < rows[j].name })
@@ -49,7 +50,7 @@ func bench(basePath, headPath string) {
 
 	fail := false
 	for _, r := range rows {
-		fmt.Printf("%-*s  %+.2f%%\n", max, r.name, r.delta)
+		fmt.Printf("%-*s  %10s  %+.2f%%\n", max, r.name, formatSpeed(r.speed), r.delta)
 		fail = fail || r.delta < -5.0
 	}
 	if fail {
@@ -57,7 +58,29 @@ func bench(basePath, headPath string) {
 	}
 }
 
-func load(path string) map[string]float64 {
+func formatSpeed(mbps float64) string {
+	if mbps <= 0 {
+		return "-"
+	}
+	b := mbps * 1e6 // B/s
+	switch {
+	case b >= 1e9:
+		return fmt.Sprintf("%.1f GB/s", b/1e9)
+	case b >= 1e6:
+		return fmt.Sprintf("%.1f MB/s", b/1e6)
+	case b >= 1e3:
+		return fmt.Sprintf("%.1f KB/s", b/1e3)
+	default:
+		return fmt.Sprintf("%.1f B/s", b)
+	}
+}
+
+type benchInfo struct {
+	ns   float64
+	mbps float64
+}
+
+func load(path string) map[string]benchInfo {
 	f, err := os.Open(path)
 	if err != nil {
 		panic(err)
@@ -68,10 +91,10 @@ func load(path string) map[string]float64 {
 	if err != nil {
 		panic(err)
 	}
-	m := make(map[string]float64)
+	m := make(map[string]benchInfo)
 	for name, bs := range s {
 		if len(bs) > 0 {
-			m[name] = bs[0].NsPerOp
+			m[name] = benchInfo{bs[0].NsPerOp, bs[0].MBPerS}
 		}
 	}
 	return m
