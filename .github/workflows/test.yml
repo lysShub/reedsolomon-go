@@ -78,10 +78,10 @@ jobs:
 
       - name: bench base (master)
         working-directory: base
-        run: go test -run='^$' -bench=Benchmark -benchmem -count=1 -benchtime=3s ./... | tee base.txt
+        run: go test -run='^$' -bench=Benchmark -benchmem -count=1 -benchtime=5s ./... | tee base.txt
 
       - name: bench head (merge)
-        run: go test -run='^$' -bench=Benchmark -benchmem -count=1 -benchtime=3s ./... | tee head.txt
+        run: go test -run='^$' -bench=Benchmark -benchmem -count=1 -benchtime=5s ./... | tee head.txt
 
       - name: compare & gate
         run: |
