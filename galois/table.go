@@ -20,3 +20,38 @@ type lohi struct {
 }
 
 var _ = ([1]byte{})[unsafe.Sizeof(lohi{})-16*2]
+
+func newMul(mul *[256][256]byte) {
+	for a := range mul {
+		for b := range mul[a] {
+			if a == 0 || b == 0 {
+				mul[a][b] = 0
+				continue
+			}
+			logA := int(logTable[a])
+			logB := int(logTable[b])
+			logSum := logA + logB
+			for logSum >= 255 {
+				logSum -= 255
+			}
+			mul[a][b] = expTable[logSum]
+		}
+	}
+}
+func newLohi(mul *[256][256]byte, lohi *[256]lohi) {
+	for i := 0; i < 256; i++ {
+		for j := 0; j < 256; j++ {
+			var v byte
+			if !(i == 0 || j == 0) {
+				v = mul[i][j]
+			}
+
+			if (j & 0x0f) == j {
+				lohi[i].lo[j] = v
+			}
+			if (j & 0xf0) == j {
+				lohi[i].hi[j>>4] = v
+			}
+		}
+	}
+}
