@@ -1,11 +1,14 @@
-//go:build !amd64 && !arm64
-// +build !amd64,!arm64
+//go:build !amd64
+// +build !amd64
 
 package galois
 
-func initialize() {
-	mulVect = mulVect_go
-	mulXorVect = mulXorVect_go
-	lastIndex = lastIndex_go
-	xorVect = xorVect_go
-}
+func mul(a, b byte) byte { return mulGo(a, b) }
+
+func mulVect(c byte, in, out []byte) { mulVectGo(c, in, out) }
+
+func mulXorVect(c byte, in, out []byte) { mulXorVectGo(c, in, out) }
+
+func xorVect(in, out []byte) { xorVectGo(in, out) }
+
+func lastIndex(s []byte, v byte) int { return lastIndexGo(s, v) }

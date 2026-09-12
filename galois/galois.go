@@ -1,18 +1,11 @@
-// Package galois implements Galois field GF(2^8) arithmetic.
+// Package galois 定义伽罗瓦域 GF(2⁸) 中的运算
 package galois
 
 import (
-	"bytes"
-	"encoding/binary"
+	"acceler/pkg/debug"
 
 	_ "golang.org/x/sys/cpu"
 )
-
-func Mul(a, b byte) byte {
-	t := lohiTable[a]
-	return t.lo[b&0x0f] ^ t.hi[b>>4]
-}
-func Add(a, b byte) byte { return a ^ b }
 
 func Div(a, b byte) byte {
 	if b == 0 {
@@ -22,85 +15,53 @@ func Div(a, b byte) byte {
 	case 0:
 		return 0
 	case 1:
-		logR := logTable[b] ^ 255
-		if logR == 255 {
-			logR = 0
-		}
-		return expTable[logR]
+		logResult := logTable[b] ^ 255
+		return expTable[logResult]
 	default:
 		logA := int(logTable[a])
 		logB := int(logTable[b])
-		logR := logA - logB
-		if logR < 0 {
-			logR += 255
+		logResult := logA - logB
+		if logResult < 0 {
+			logResult += 255
 		}
-		return expTable[uint8(logR)]
+		return expTable[uint8(logResult)]
 	}
 }
 
-// Pow a**n.
-func Pow(a, n byte) byte {
+// Exp a**n.
+func Exp(a byte, n int) byte {
 	if n == 0 {
 		return 1
-	} else if a == 0 {
+	}
+	if a == 0 {
 		return 0
-	} else {
-		logA := int(logTable[a]) * int(n)
-		return expTable[uint8(logA%255)]
 	}
+
+	logA := logTable[a]
+	logResult := int(logA) * n
+	for logResult >= 255 {
+		logResult -= 255
+	}
+	return expTable[uint8(logResult)]
 }
 
-var (
-	mulVect    func(c byte, i, o []byte)
-	mulXorVect func(c byte, i, o []byte)
-	lastIndex  func(s []byte, v byte) int
-	xorVect    func(i, o []byte)
-)
+func Mul(a, b byte) byte { return mul(a, b) }
+func Add(a, b byte) byte { return a ^ b }
 
-func MulVect(c byte, i, o []byte)    { mulVect(c, i, o) }
-func MulXorVect(c byte, i, o []byte) { mulXorVect(c, i, o) }
-func XorVect(i, o []byte)            { xorVect(i, o) }
-func LastIndex(s []byte, v byte) int { return lastIndex(s, v) }
+// MulVect out[i] = c * in[i], 要求 len(out)>=len(in)
+func MulVect(c byte, in, out []byte) {
+	if debug.Debug() {
+		debug.GreaterOrEqual(len(out), len(in))
+	}
+	mulVect(c, in, out)
+}
 
-func init() { initialize() }
-func mulVect_go(c byte, i, o []byte) {
-	switch c {
-	case 0:
-		clear(o[:len(i)])
-	case 1:
-		copy(o[:len(i)], i)
-	default:
-		t := mulTable[c]
-		for idx := range i {
-			o[idx] = t[i[idx]]
-		}
+// MulXorVect  out[i] = (c*in[i]) ^ out[i], 要求 len(out)>=len(in)
+func MulXorVect(c byte, in, out []byte) {
+	if debug.Debug() {
+		debug.GreaterOrEqual(len(out), len(in))
 	}
+	mulXorVect(c, in, out)
 }
-func mulXorVect_go(c byte, i, o []byte) {
-	switch c {
-	case 0:
-		_ = o[:len(i)]
-	case 1:
-		xorVect_go(i, o)
-	default:
-		t := mulTable[c]
-		for idx := range i {
-			o[idx] ^= t[i[idx]]
-		}
-	}
-}
-func xorVect_go(i, o []byte) {
-	n := len(i)
-	idx := 0
-	for ; idx+8 <= n; idx += 8 {
-		wi := binary.LittleEndian.Uint64(i[idx:])
-		wo := binary.LittleEndian.Uint64(o[idx:])
-		binary.LittleEndian.PutUint64(o[idx:], wi^wo)
-	}
-	for ; idx < n; idx++ {
-		o[idx] ^= i[idx]
-	}
-}
-func lastIndex_go(s []byte, v byte) int {
-	return bytes.LastIndexByte(s, v)
-}
+
+func LastIndex(s []byte, b byte) int { return lastIndex(s, b) }
