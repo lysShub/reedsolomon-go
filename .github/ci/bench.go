@@ -13,6 +13,7 @@ type row struct {
 	name  string
 	delta float64
 	speed float64
+	ns    float64
 }
 
 func runBench(masterDir, mergeDir, name, benchtime string, threshold float64, maxRetry int) bool {
@@ -85,11 +86,11 @@ func compareBench(masterPath, mergePath string, threshold float64) (string, []st
 		rns, rOk := merge[name]
 		switch {
 		case !mOk:
-			rows = append(rows, row{name, +100, rns.mbps})
+			rows = append(rows, row{name, +100, rns.mbps, rns.ns})
 		case !rOk:
-			rows = append(rows, row{name, -100, 0})
+			rows = append(rows, row{name, -100, 0, 0})
 		default:
-			rows = append(rows, row{name, (mns.ns - rns.ns) / mns.ns * 100, rns.mbps})
+			rows = append(rows, row{name, (mns.ns - rns.ns) / mns.ns * 100, rns.mbps, rns.ns})
 		}
 	}
 	sort.Slice(rows, func(i, j int) bool { return rows[i].name < rows[j].name })
@@ -106,7 +107,7 @@ func compareBench(masterPath, mergePath string, threshold float64) (string, []st
 		over []string
 	)
 	for _, r := range rows {
-		line := fmt.Sprintf("%-*s  %10s  %+.2f%%\n", max, r.name, formatSpeed(r.speed), r.delta)
+		line := fmt.Sprintf("%-*s  %12s  %+.2f%%\n", max, r.name, formatMetric(r.speed, r.ns), r.delta)
 		fmt.Fprint(&b, line)
 		if r.delta < threshold {
 			over = append(over, line)
@@ -115,6 +116,28 @@ func compareBench(masterPath, mergePath string, threshold float64) (string, []st
 	return b.String(), over, len(over) == 0
 }
 
+func formatMetric(speed, ns float64) string {
+	switch {
+	case speed > 0:
+		return formatSpeed(speed)
+	case ns > 0:
+		return formatDuration(ns)
+	default:
+		return "-"
+	}
+}
+func formatDuration(ns float64) string {
+	switch {
+	case ns >= 1e9:
+		return fmt.Sprintf("%.2f s/op", ns/1e9)
+	case ns >= 1e6:
+		return fmt.Sprintf("%.2f ms/op", ns/1e6)
+	case ns >= 1e3:
+		return fmt.Sprintf("%.2f us/op", ns/1e3)
+	default:
+		return fmt.Sprintf("%.2f ns/op", ns)
+	}
+}
 func formatSpeed(mbps float64) string {
 	if mbps <= 0 {
 		return "-"
