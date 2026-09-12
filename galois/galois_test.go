@@ -3,6 +3,7 @@ package galois
 import (
 	"bytes"
 	"crypto/rand"
+	"fmt"
 	"testing"
 )
 
@@ -22,77 +23,106 @@ var testSize = []int{
 const benchMulC byte = 0b10101010
 const searchByte byte = 0b10101010
 
-func test_vect(t *testing.T,
-	mulVect func(c byte, i, o []byte),
-	mulXorVect func(c byte, i, o []byte),
-	lastIndex func(s []byte, v byte) int,
-	xorVect func(i, o []byte),
-) {
-	t.Run("mulVect", func(t *testing.T) {
-		for _, n := range testSize {
-			var (
-				c   = byte(123)
-				in  = make([]byte, n)
-				out = make([]byte, n)
-				exp = make([]byte, n)
-			)
+func test_vect(t *testing.T) {
+	for _, n := range testSize {
+
+		t.Run(fmt.Sprintf("MulVect_%d", n), func(t *testing.T) {
+			c := byte(123)
+			in := make([]byte, n)
+			out := make([]byte, n)
 			rand.Read(in)
-			mulVect_go(c, in, exp)
-			mulVect(c, in, out)
-			if !bytes.Equal(exp, out) {
-				t.Fatalf("n=%d mismatch", n)
+			MulVect(c, in, out)
+			for i := range in {
+				if out[i] != Mul(c, in[i]) {
+					t.Fatalf("n=%d i=%d mismatch", n, i)
+				}
 			}
-		}
-	})
-	t.Run("mulXorVect", func(t *testing.T) {
-		for _, n := range testSize {
-			var (
-				c   = byte(123)
-				in  = make([]byte, n)
-				out = make([]byte, n)
-				exp = make([]byte, n)
-			)
+		})
+
+		t.Run(fmt.Sprintf("MulXorVect_%d", n), func(t *testing.T) {
+			c := byte(123)
+			in := make([]byte, n)
+			out := make([]byte, n)
 			rand.Read(in)
 			rand.Read(out)
-			copy(exp, out)
-			mulXorVect_go(c, in, exp)
-			mulXorVect(c, in, out)
-			if !bytes.Equal(exp, out) {
-				t.Fatalf("n=%d mismatch", n)
+			exp := append([]byte(nil), out...)
+			MulXorVect(c, in, out)
+			for i := range in {
+				if out[i] != exp[i]^Mul(c, in[i]) {
+					t.Fatalf("n=%d i=%d mismatch", n, i)
+				}
 			}
-		}
-	})
-	t.Run("xorVect", func(t *testing.T) {
-		for _, n := range testSize {
-			var (
-				in  = make([]byte, n)
-				out = make([]byte, n)
-				exp = make([]byte, n)
-			)
+		})
+
+		t.Run(fmt.Sprintf("XorVect_%d", n), func(t *testing.T) {
+			in := make([]byte, n)
+			out := make([]byte, n)
 			rand.Read(in)
 			rand.Read(out)
-			copy(exp, out)
-			xorVect_go(in, exp)
-			xorVect(in, out)
-			if !bytes.Equal(exp, out) {
-				t.Fatalf("n=%d mismatch", n)
+			exp := append([]byte(nil), out...)
+			XorVect(in, out)
+			for i := range in {
+				if out[i] != exp[i]^in[i] {
+					t.Fatalf("n=%d i=%d mismatch", n, i)
+				}
 			}
-		}
-	})
-	t.Run("lastIndex", func(t *testing.T) {
-		for _, n := range testSize {
+		})
+
+		t.Run(fmt.Sprintf("LastIndex_%d", n), func(t *testing.T) {
 			s := make([]byte, n)
-			if lastIndex(s, 0xff) != -1 {
+			if LastIndex(s, 0xff) != bytes.LastIndexByte(s, 0xff) {
 				t.Fatalf("n=%d mismatch", n)
 			}
 			for i := 0; i < n; i++ {
 				s[i] = 0xff
-				if lastIndex(s, 0xff) != lastIndex_go(s, 0xff) {
+				if LastIndex(s, 0xff) != bytes.LastIndexByte(s, 0xff) {
 					t.Fatalf("n=%d i=%d mismatch", n, i)
 				}
 			}
-		}
-	})
+		})
+	}
+}
+
+func bench_vect(b *testing.B) {
+	for _, n := range benchSizes {
+
+		b.Run(fmt.Sprintf("MulVect_%d", n), func(b *testing.B) {
+			i, o := make([]byte, n), make([]byte, n)
+			b.SetBytes(int64(n))
+			b.ResetTimer()
+			for range b.N {
+				MulVect(benchMulC, i, o)
+			}
+		})
+
+		b.Run(fmt.Sprintf("MulXorVect_%d", n), func(b *testing.B) {
+			i, o := make([]byte, n), make([]byte, n)
+			b.SetBytes(int64(n))
+			b.ResetTimer()
+			for range b.N {
+				MulXorVect(benchMulC, i, o)
+			}
+		})
+
+		b.Run(fmt.Sprintf("XorVect_%d", n), func(b *testing.B) {
+			i, o := make([]byte, n), make([]byte, n)
+			b.SetBytes(int64(n))
+			b.ResetTimer()
+			for range b.N {
+				XorVect(i, o)
+			}
+		})
+
+		b.Run(fmt.Sprintf("LastIndex_%d", n), func(b *testing.B) {
+			s := make([]byte, n)
+			b.SetBytes(int64(n))
+			b.ResetTimer()
+			for range b.N {
+				LastIndex(s, searchByte)
+			}
+		})
+
+	}
 }
 
 func Test_Scal(t *testing.T) {

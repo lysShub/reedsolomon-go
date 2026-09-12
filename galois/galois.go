@@ -62,6 +62,7 @@ func MulXorVect(c byte, i, o []byte) { mulXorVect(c, i, o) }
 func XorVect(i, o []byte)            { xorVect(i, o) }
 func LastIndex(s []byte, v byte) int { return lastIndex(s, v) }
 
+func init() { initialize() }
 func mulVect_go(c byte, i, o []byte) {
 	switch c {
 	case 0:
