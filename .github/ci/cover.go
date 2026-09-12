@@ -3,13 +3,42 @@ package main
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 	"sort"
 	"strings"
 
 	coverpkg "golang.org/x/tools/cover"
 )
 
-func cover(basePath, headPath string) {
+// runTest runs the test job: head tests/coverage, base coverage, then
+// compares the two coverage profiles and prints a step-summary section.
+func runTest(baseDir, headDir, name string, threshold float64) bool {
+	steps := [][]string{
+		{"go", "test", "-coverprofile=cover.out", "./..."},
+		{"go", "test", "-tags", "debug", "./..."},
+	}
+	for _, s := range steps {
+		if err := run(headDir, s[0], s[1:]...); err != nil {
+			fmt.Fprintf(os.Stderr, "step failed: %v: %v\n", s, err)
+			return false
+		}
+	}
+
+	if err := run(baseDir, "go", "test", "-coverprofile=cover.out", "./..."); err != nil {
+		fmt.Fprintf(os.Stderr, "base coverage failed: %v\n", err)
+		return false
+	}
+
+	body, pass := compareCover(
+		filepath.Join(baseDir, "cover.out"),
+		filepath.Join(headDir, "cover.out"),
+		threshold,
+	)
+	emit("coverage", name, body)
+	return pass
+}
+
+func compareCover(basePath, headPath string, threshold float64) (string, bool) {
 	base := loadCover(basePath)
 	head := loadCover(headPath)
 
@@ -49,14 +78,13 @@ func cover(basePath, headPath string) {
 		}
 	}
 
+	var b strings.Builder
 	fail := false
 	for _, r := range rows {
-		fmt.Printf("%-*s  %6s  %6s  %+.2f%%\n", max, r.pkg, r.base, r.head, r.delta)
-		fail = fail || r.delta < -2.0
+		fmt.Fprintf(&b, "%-*s  %6s  %6s  %+.2f%%\n", max, r.pkg, r.base, r.head, r.delta)
+		fail = fail || r.delta < threshold
 	}
-	if fail {
-		os.Exit(1)
-	}
+	return b.String(), !fail
 }
 
 func loadCover(path string) map[string]float64 {

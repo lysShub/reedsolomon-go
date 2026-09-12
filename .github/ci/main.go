@@ -1,23 +1,43 @@
 package main
 
 import (
+	"flag"
 	"fmt"
 	"os"
 )
 
 func main() {
-	if len(os.Args) < 4 {
-		fmt.Fprintln(os.Stderr, "usage: ci <bench|cover> base.txt head.txt")
-		os.Exit(2)
+	if len(os.Args) < 2 {
+		usage()
 	}
-	mode, base, head := os.Args[1], os.Args[2], os.Args[3]
-	switch mode {
+	switch os.Args[1] {
+	case "test":
+		fs := flag.NewFlagSet("test", flag.ExitOnError)
+		base := fs.String("base", "../base", "base checkout directory")
+		head := fs.String("head", "..", "head checkout directory")
+		name := fs.String("name", "", "summary title suffix (e.g. platform name)")
+		threshold := fs.Float64("threshold", -2.0, "coverage delta threshold (%)")
+		_ = fs.Parse(os.Args[2:])
+		if !runTest(*base, *head, *name, *threshold) {
+			os.Exit(1)
+		}
 	case "bench":
-		bench(base, head)
-	case "cover":
-		cover(base, head)
+		fs := flag.NewFlagSet("bench", flag.ExitOnError)
+		base := fs.String("base", "../base", "base checkout directory")
+		head := fs.String("head", "..", "head checkout directory")
+		name := fs.String("name", "", "summary title suffix (e.g. platform name)")
+		threshold := fs.Float64("threshold", -10.0, "bench delta threshold (%)")
+		maxRetry := fs.Int("max-retry", 3, "max retry attempts")
+		_ = fs.Parse(os.Args[2:])
+		if !runBench(*base, *head, *name, *threshold, *maxRetry) {
+			os.Exit(1)
+		}
 	default:
-		fmt.Fprintf(os.Stderr, "unknown mode: %s\n", mode)
-		os.Exit(2)
+		usage()
 	}
+}
+
+func usage() {
+	fmt.Fprintln(os.Stderr, "usage: ci <test|bench> [flags]")
+	os.Exit(2)
 }

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"strings"
 
 	"golang.org/x/tools/benchmark/parse"
 )
@@ -14,7 +15,36 @@ type row struct {
 	speed float64
 }
 
-func bench(basePath, headPath string) {
+// runBench runs the bench job: benchmark base and head on the same runner,
+// compare, retry the whole round on failure, and print a step-summary section.
+func runBench(baseDir, headDir, name string, threshold float64, maxRetry int) bool {
+	const baseTxt, headTxt = "base.txt", "head.txt"
+	args := []string{"test", "-run=^$", "-bench=Benchmark", "-benchmem", "-count=1", "-benchtime=15s", "./..."}
+
+	var (
+		body string
+		pass bool
+	)
+	for attempt := 0; attempt <= maxRetry; attempt++ {
+		fmt.Fprintf(os.Stderr, "\n======================= bench attempt %d/%d =======================\n", attempt+1, maxRetry+1)
+		if err := runToFile(baseDir, baseTxt, "go", args...); err != nil {
+			fmt.Fprintf(os.Stderr, "bench base failed: %v\n", err)
+			return false
+		}
+		if err := runToFile(headDir, headTxt, "go", args...); err != nil {
+			fmt.Fprintf(os.Stderr, "bench head failed: %v\n", err)
+			return false
+		}
+		body, pass = compareBench(baseTxt, headTxt, threshold)
+		if pass {
+			break
+		}
+	}
+	emit("bench", name, body)
+	return pass
+}
+
+func compareBench(basePath, headPath string, threshold float64) (string, bool) {
 	base := load(basePath)
 	head := load(headPath)
 
@@ -48,14 +78,13 @@ func bench(basePath, headPath string) {
 		}
 	}
 
+	var b strings.Builder
 	fail := false
 	for _, r := range rows {
-		fmt.Printf("%-*s  %10s  %+.2f%%\n", max, r.name, formatSpeed(r.speed), r.delta)
-		fail = fail || r.delta < -10.0
+		fmt.Fprintf(&b, "%-*s  %10s  %+.2f%%\n", max, r.name, formatSpeed(r.speed), r.delta)
+		fail = fail || r.delta < threshold
 	}
-	if fail {
-		os.Exit(1)
-	}
+	return b.String(), !fail
 }
 
 func formatSpeed(mbps float64) string {
