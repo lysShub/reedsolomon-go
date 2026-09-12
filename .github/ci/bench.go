@@ -15,11 +15,9 @@ type row struct {
 	speed float64
 }
 
-// runBench runs the bench job: benchmark base and head on the same runner,
-// compare, retry the whole round on failure, and print a step-summary section.
-func runBench(baseDir, headDir, name string, threshold float64, maxRetry int) bool {
-	const baseTxt, headTxt = "base.txt", "head.txt"
-	args := []string{"test", "-run=^$", "-bench=Benchmark", "-benchmem", "-count=1", "-benchtime=15s", "./..."}
+func runBench(masterDir, mergeDir, name, benchtime string, threshold float64, maxRetry int) bool {
+	const masterTxt, mergeTxt = "master.txt", "merge.txt"
+	args := []string{"test", "-run=^$", "-bench=Benchmark", "-benchmem", "-count=1", "-benchtime=" + benchtime, "./..."}
 
 	var (
 		body string
@@ -27,15 +25,15 @@ func runBench(baseDir, headDir, name string, threshold float64, maxRetry int) bo
 	)
 	for attempt := 0; attempt <= maxRetry; attempt++ {
 		fmt.Fprintf(os.Stderr, "\n======================= bench attempt %d/%d =======================\n", attempt+1, maxRetry+1)
-		if err := runToFile(baseDir, baseTxt, "go", args...); err != nil {
-			fmt.Fprintf(os.Stderr, "bench base failed: %v\n", err)
+		if err := runToFile(masterDir, masterTxt, "go", args...); err != nil {
+			fmt.Fprintf(os.Stderr, "bench master failed: %v\n", err)
 			return false
 		}
-		if err := runToFile(headDir, headTxt, "go", args...); err != nil {
-			fmt.Fprintf(os.Stderr, "bench head failed: %v\n", err)
+		if err := runToFile(mergeDir, mergeTxt, "go", args...); err != nil {
+			fmt.Fprintf(os.Stderr, "bench merge failed: %v\n", err)
 			return false
 		}
-		body, pass = compareBench(baseTxt, headTxt, threshold)
+		body, pass = compareBench(masterTxt, mergeTxt, threshold)
 		if pass {
 			break
 		}

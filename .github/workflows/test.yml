@@ -57,7 +57,7 @@ jobs:
 
       - name: ci test
         working-directory: merge/.github/ci
-        run: go run . test --base ../../../master --head ../.. --name "${{ matrix.name }}"
+        run: go run . test --master ../../../master --merge ../.. --name "${{ matrix.name }}"
 
       - run: git diff --exit-code
         working-directory: merge
@@ -98,7 +98,7 @@ jobs:
 
       - name: ci bench
         working-directory: merge/.github/ci
-        run: go run . bench --base ../../../master --head ../.. --name "${{ matrix.name }}" --max-retry 3
+        run: go run . bench --master ../../../master --merge ../.. --name "${{ matrix.name }}" --max-retry 3
 
   checks-done:
     needs: [test, bench]

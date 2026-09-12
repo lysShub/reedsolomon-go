@@ -10,28 +10,26 @@ import (
 	coverpkg "golang.org/x/tools/cover"
 )
 
-// runTest runs the test job: head tests/coverage, base coverage, then
-// compares the two coverage profiles and prints a step-summary section.
-func runTest(baseDir, headDir, name string, threshold float64) bool {
+func runTest(masterDir, mergeDir, name string, threshold float64) bool {
 	steps := [][]string{
 		{"go", "test", "-coverprofile=cover.out", "./..."},
 		{"go", "test", "-tags", "debug", "./..."},
 	}
 	for _, s := range steps {
-		if err := run(headDir, s[0], s[1:]...); err != nil {
+		if err := run(mergeDir, s[0], s[1:]...); err != nil {
 			fmt.Fprintf(os.Stderr, "step failed: %v: %v\n", s, err)
 			return false
 		}
 	}
 
-	if err := run(baseDir, "go", "test", "-coverprofile=cover.out", "./..."); err != nil {
-		fmt.Fprintf(os.Stderr, "base coverage failed: %v\n", err)
+	if err := run(masterDir, "go", "test", "-coverprofile=cover.out", "./..."); err != nil {
+		fmt.Fprintf(os.Stderr, "master coverage failed: %v\n", err)
 		return false
 	}
 
 	body, pass := compareCover(
-		filepath.Join(baseDir, "cover.out"),
-		filepath.Join(headDir, "cover.out"),
+		filepath.Join(masterDir, "cover.out"),
+		filepath.Join(mergeDir, "cover.out"),
 		threshold,
 	)
 	emit("coverage", name, body)
