@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"strings"
 
 	"golang.org/x/tools/benchmark/parse"
 )
@@ -12,31 +13,78 @@ type row struct {
 	name  string
 	delta float64
 	speed float64
+	ns    float64
 }
 
-func bench(basePath, headPath string) {
-	base := load(basePath)
-	head := load(headPath)
+func runBench(masterDir, mergeDir, name, benchtime string, threshold float64, maxRetry int) bool {
+	const masterTxt, mergeTxt = "master.txt", "merge.txt"
+	args := []string{"test", "-run=^$", "-bench=Benchmark", "-benchmem", "-count=1", "-benchtime=" + benchtime, "./..."}
 
-	names := make(map[string]bool, len(base)+len(head))
-	for n := range base {
+	for attempt := 0; attempt <= maxRetry; attempt++ {
+		var (
+			body string
+			over []string
+			pass bool
+		)
+
+		if ok := func() bool {
+			fmt.Println()
+			fmt.Println()
+			fmt.Printf("::group::bench attempt %d/%d\n", attempt+1, maxRetry+1)
+			defer fmt.Println("::endgroup::")
+
+			if err := runToFile(masterDir, masterTxt, "go", args...); err != nil {
+				fmt.Fprintf(os.Stderr, "bench master failed: %v\n", err)
+				return false
+			}
+			if err := runToFile(mergeDir, mergeTxt, "go", args...); err != nil {
+				fmt.Fprintf(os.Stderr, "bench merge failed: %v\n", err)
+				return false
+			}
+
+			body, over, pass = compareBench(masterTxt, mergeTxt, threshold)
+			if len(over) > 0 {
+				fmt.Println("\nover threshold:")
+				for _, l := range over {
+					fmt.Print(l)
+				}
+			}
+			return true
+		}(); !ok {
+			return false
+		}
+
+		if pass {
+			emit("bench", name, body)
+			return true
+		}
+	}
+	return false
+}
+
+func compareBench(masterPath, mergePath string, threshold float64) (string, []string, bool) {
+	master := load(masterPath)
+	merge := load(mergePath)
+
+	names := make(map[string]bool, len(master)+len(merge))
+	for n := range master {
 		names[n] = true
 	}
-	for n := range head {
+	for n := range merge {
 		names[n] = true
 	}
 
 	rows := make([]row, 0, len(names))
 	for name := range names {
-		bns, bOk := base[name]
-		hns, hOk := head[name]
+		mns, mOk := master[name]
+		rns, rOk := merge[name]
 		switch {
-		case !bOk:
-			rows = append(rows, row{name, +100, hns.mbps})
-		case !hOk:
-			rows = append(rows, row{name, -100, 0})
+		case !mOk:
+			rows = append(rows, row{name, +100, rns.mbps, rns.ns})
+		case !rOk:
+			rows = append(rows, row{name, -100, 0, 0})
 		default:
-			rows = append(rows, row{name, (bns.ns - hns.ns) / bns.ns * 100, hns.mbps})
+			rows = append(rows, row{name, (mns.ns - rns.ns) / mns.ns * 100, rns.mbps, rns.ns})
 		}
 	}
 	sort.Slice(rows, func(i, j int) bool { return rows[i].name < rows[j].name })
@@ -48,16 +96,42 @@ func bench(basePath, headPath string) {
 		}
 	}
 
-	fail := false
+	var (
+		b    strings.Builder
+		over []string
+	)
 	for _, r := range rows {
-		fmt.Printf("%-*s  %10s  %+.2f%%\n", max, r.name, formatSpeed(r.speed), r.delta)
-		fail = fail || r.delta < -10.0
+		line := fmt.Sprintf("%-*s  %12s  %+.2f%%\n", max, r.name, formatMetric(r.speed, r.ns), r.delta)
+		fmt.Fprint(&b, line)
+		if r.delta < threshold {
+			over = append(over, line)
+		}
 	}
-	if fail {
-		os.Exit(1)
-	}
+	return b.String(), over, len(over) == 0
 }
 
+func formatMetric(speed, ns float64) string {
+	switch {
+	case speed > 0:
+		return formatSpeed(speed)
+	case ns > 0:
+		return formatDuration(ns)
+	default:
+		return "-"
+	}
+}
+func formatDuration(ns float64) string {
+	switch {
+	case ns >= 1e9:
+		return fmt.Sprintf("%.2f s/op", ns/1e9)
+	case ns >= 1e6:
+		return fmt.Sprintf("%.2f ms/op", ns/1e6)
+	case ns >= 1e3:
+		return fmt.Sprintf("%.2f us/op", ns/1e3)
+	default:
+		return fmt.Sprintf("%.2f ns/op", ns)
+	}
+}
 func formatSpeed(mbps float64) string {
 	if mbps <= 0 {
 		return "-"

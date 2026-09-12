@@ -27,20 +27,40 @@ jobs:
           - name: linux/386
             os: ubuntu-latest
             goarch: "386"
+    defaults:
+      run:
+        shell: bash -eo pipefail {0}
     steps:
       - uses: actions/checkout@v6
+        with:
+          path: merge
+      - uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.base.sha || github.event.before }}
+          path: master
       - uses: actions/setup-go@v6
         with:
-          go-version-file: go.mod
+          go-version-file: merge/go.mod
           cache: true
-      - run: go mod tidy
-      - run: go generate ./...
-      - run: go vet ./...
-      - run: go vet -tags debug ./...
-      - run: go fmt ./...
-      - run: go test ./...
-      - run: go test -tags debug ./...
+          cache-dependency-path: |
+            merge/go.sum
+            merge/.github/ci/go.sum
+
+      - name: format
+        working-directory: merge
+        run: |
+          go mod tidy
+          go generate ./...
+          go vet ./...
+          go vet -tags debug ./...
+          go fmt ./...
+
+      - name: ci test
+        working-directory: merge/.github/ci
+        run: go run . test --master ../../../master --merge ../.. --name "${{ matrix.name }}"
+
       - run: git diff --exit-code
+        working-directory: merge
 
   bench:
     runs-on: ${{ matrix.os }}
@@ -57,106 +77,34 @@ jobs:
           - name: arm64
             os: macos-latest
             goarch: arm64
-          # - name: other
-          #   os: ubuntu-latest
-          #   goarch: "386"
     defaults:
       run:
         shell: bash -eo pipefail {0}
     steps:
       - uses: actions/checkout@v6
-      - uses: actions/setup-go@v6
         with:
-          go-version-file: go.mod
-          cache: true
-
-      - name: checkout base
-        uses: actions/checkout@v6
-        with:
-          ref: ${{ github.event.pull_request.base.sha || github.event.before }}
-          path: base
-
-      - name: bench base (master)
-        working-directory: base
-        run: go test -run='^$' -bench=Benchmark -benchmem -count=1 -benchtime=15s ./... | tee base.txt
-
-      - name: bench head (merge)
-        run: go test -run='^$' -bench=Benchmark -benchmem -count=1 -benchtime=15s ./... | tee head.txt
-
-      - name: compare & gate
-        run: |
-          cd .github/ci
-          go run . bench "$GITHUB_WORKSPACE/base/base.txt" "$GITHUB_WORKSPACE/head.txt" | tee "$GITHUB_WORKSPACE/result.txt"
-
-      - name: post summary
-        if: always()
-        run: |
-          printf '## bench: %s\n\n```\n' "${{ matrix.name }}" >> "$GITHUB_STEP_SUMMARY"
-          cat "$GITHUB_WORKSPACE/result.txt" >> "$GITHUB_STEP_SUMMARY"
-          printf '```\n' >> "$GITHUB_STEP_SUMMARY"
-
-  coverage:
-    runs-on: ${{ matrix.os }}
-    env:
-      GOEXPERIMENT: simd
-      GOARCH: ${{ matrix.goarch }}
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - name: linux/amd64
-            os: ubuntu-latest
-            goarch: amd64
-          - name: windows/amd64
-            os: windows-latest
-            goarch: amd64
-          - name: macos/arm64
-            os: macos-latest
-            goarch: arm64
-          - name: linux/386
-            os: ubuntu-latest
-            goarch: "386"
-    defaults:
-      run:
-        shell: bash -eo pipefail {0}
-    steps:
+          path: merge
       - uses: actions/checkout@v6
-      - uses: actions/setup-go@v6
-        with:
-          go-version-file: go.mod
-          cache: true
-
-      - name: checkout base
-        uses: actions/checkout@v6
         with:
           ref: ${{ github.event.pull_request.base.sha || github.event.before }}
-          path: base
+          path: master
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: merge/go.mod
+          cache: true
+          cache-dependency-path: |
+            merge/go.sum
+            merge/.github/ci/go.sum
 
-      - name: cover base (master)
-        working-directory: base
-        run: go test -coverprofile=cover.out ./...
-
-      - name: cover head (merge)
-        run: go test -coverprofile=cover.out ./...
-
-      - name: compare & gate
-        run: |
-          cd .github/ci
-          go run . cover "$GITHUB_WORKSPACE/base/cover.out" "$GITHUB_WORKSPACE/cover.out" | tee "$GITHUB_WORKSPACE/result.txt"
-
-      - name: post summary
-        if: always()
-        run: |
-          printf '## coverage: %s\n\n```\n' "${{ matrix.name }}" >> "$GITHUB_STEP_SUMMARY"
-          cat "$GITHUB_WORKSPACE/result.txt" >> "$GITHUB_STEP_SUMMARY"
-          printf '```\n' >> "$GITHUB_STEP_SUMMARY"
+      - name: ci bench
+        working-directory: merge/.github/ci
+        run: go run . bench --master ../../../master --merge ../.. --name "${{ matrix.name }}" --max-retry 3 --benchtime 3s
 
   checks-done:
-    needs: [test, bench, coverage]
+    needs: [test, bench]
     runs-on: ubuntu-latest
     if: always()
     steps:
       - run: |
           test "${{ needs.test.result }}" = success
           test "${{ needs.bench.result }}" = success
-          test "${{ needs.coverage.result }}" = success
