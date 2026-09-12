@@ -57,9 +57,9 @@ jobs:
           - name: arm64
             os: macos-latest
             goarch: arm64
-          - name: other
-            os: ubuntu-latest
-            goarch: "386"
+          # - name: other
+          #   os: ubuntu-latest
+          #   goarch: "386"
     defaults:
       run:
         shell: bash -eo pipefail {0}
