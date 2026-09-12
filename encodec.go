@@ -19,6 +19,8 @@ type cache struct {
 	m     map[cachekey]*cacheval
 }
 
+// update
+
 func newCache(cacheSize int) *cache {
 	if cacheSize < 1024 {
 		panic(cacheSize)
