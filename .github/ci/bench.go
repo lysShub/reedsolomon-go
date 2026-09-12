@@ -41,7 +41,6 @@ func runBench(masterDir, mergeDir, name, benchtime string, threshold float64, ma
 			}
 
 			body, over, pass = compareBench(masterTxt, mergeTxt, threshold)
-			fmt.Print(body)
 			if len(over) > 0 {
 				fmt.Println("\nover threshold:")
 				for _, l := range over {
@@ -51,16 +50,14 @@ func runBench(masterDir, mergeDir, name, benchtime string, threshold float64, ma
 			return true
 		}()
 		fmt.Println("::endgroup::")
-
 		if !ok {
 			return false
 		}
 
-		content := body
 		if len(over) > 0 {
-			content += "\nover threshold:\n" + strings.Join(over, "")
+			body += "\nover threshold:\n" + strings.Join(over, "")
 		}
-		emit("bench", fmt.Sprintf("%s (try %d/%d)", name, attempt+1, maxRetry+1), content)
+		emit("bench", fmt.Sprintf("%s (try %d/%d)", name, attempt+1, maxRetry+1), body)
 		if pass {
 			return true
 		}

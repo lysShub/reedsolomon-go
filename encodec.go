@@ -19,8 +19,6 @@ type cache struct {
 	m     map[cachekey]*cacheval
 }
 
-// update
-
 func newCache(cacheSize int) *cache {
 	if cacheSize < 1024 {
 		panic(cacheSize)
@@ -44,51 +42,54 @@ func (c *cache) Release() {
 		e.release()
 	}
 	clear(c.m)
+	c.bytes = 0
+	c.count.Store(0)
 }
 
 func (c *cache) matrix(para Para, idxs ...uint8) []byte {
 	key := cachekey{para: para, indexs: newIndexs(idxs)}
 	c.mu.RLock()
-	v := c.m[key]
+	val := c.m[key]
 	c.mu.RUnlock()
-	if v != nil {
-		cnt := v.count.Add(1)
-		max := max(cnt, c.count.Load())
-		c.count.Store(max)
-		return v.m
+	if val != nil {
+		cnt := val.count.Add(1)
+		c.count.Store(max(cnt, c.count.Load()))
+		return val.m
 	}
 
-	// [newIndexs] is referenced underlying memory, read-only
-	key.indexs = indexs(strings.Clone(string(key.indexs)))
-	val := newCacheval(para, idxs)
 	c.mu.Lock()
 	{
 		if v, ok := c.m[key]; ok {
-			val.release()
 			val = v
 		} else {
-			c.m[key] = val
+			val = newCacheval(para, idxs)
 			c.bytes += len(val.m)
-			c.clear()
+			if c.bytes > c.limit+c.limit/8 {
+				c.rotate()
+			}
+
+			c.m[cachekey{
+				para: para,
+				// [newIndexs] is referenced underlying memory, must clone
+				indexs: indexs(strings.Clone(string(key.indexs))),
+			}] = val
 		}
 	}
 	c.mu.Unlock()
 	return val.m
 }
-func (c *cache) clear() {
-	if c.bytes > c.limit+c.limit/8 {
-		limit := c.count.Load() / 8
-		for k, v := range c.m {
-			if v.count.Load() < limit {
-				c.bytes -= len(v.m)
-				v.release()
-				delete(c.m, k)
-			} else {
-				v.count.Store(0)
-			}
+func (c *cache) rotate() {
+	limit := max(c.count.Load()/8, 1)
+	for k, v := range c.m {
+		if v.count.Load() < limit {
+			c.bytes -= len(v.m)
+			v.release()
+			delete(c.m, k)
+		} else {
+			v.count.Store(0)
 		}
-		c.count.Store(0)
 	}
+	c.count.Store(0)
 }
 
 type cacheval struct {

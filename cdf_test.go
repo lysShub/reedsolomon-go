@@ -36,7 +36,7 @@ func Test_ReedsolomonPL(t *testing.T) {
 }
 
 func Benchmark_ReedsolomonPL(b *testing.B) {
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		_ = ReedsolomonPL(8, 4, 0.1)
 	}
 }
