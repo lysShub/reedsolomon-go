@@ -63,10 +63,10 @@ func mock(groupsize int, paritysize int, pl float64) float64 {
 		}
 
 		if l <= paritysize {
-			// 可以恢复所有datasize
+			// can recover all data blocks
 			recv += datasize
 		} else {
-			// 无法恢复, 统计原始数据
+			// cannot recover, count original data
 			for _, e := range g[:datasize] {
 				if e {
 					recv += 1

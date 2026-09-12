@@ -3,7 +3,7 @@
 
 package galois
 
-func init() {
+func initialize() {
 	mulVect = mulVect_go
 	mulXorVect = mulXorVect_go
 	lastIndex = lastIndex_go

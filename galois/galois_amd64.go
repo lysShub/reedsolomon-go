@@ -10,7 +10,7 @@ import (
 	"golang.org/x/sys/cpu"
 )
 
-func init() {
+func initialize() {
 	if cpu.X86.HasAVX512GFNI {
 		mulVect = mulVect_gfni
 		mulXorVect = mulXorVect_gfni

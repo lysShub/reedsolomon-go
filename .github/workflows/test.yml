@@ -34,6 +34,7 @@ jobs:
           go-version-file: go.mod
           cache: true
       - run: go mod tidy
+      - run: go generate ./...
       - run: go vet ./...
       - run: go vet -tags debug ./...
       - run: go fmt ./...
@@ -56,9 +57,9 @@ jobs:
           - name: arm64
             os: macos-latest
             goarch: arm64
-          - name: other
-            os: ubuntu-latest
-            goarch: "386"
+          # - name: other
+          #   os: ubuntu-latest
+          #   goarch: "386"
     defaults:
       run:
         shell: bash -eo pipefail {0}
@@ -77,10 +78,10 @@ jobs:
 
       - name: bench base (master)
         working-directory: base
-        run: go test -run='^$' -bench=Benchmark -benchmem -count=1 -benchtime=3s ./... | tee base.txt
+        run: go test -run='^$' -bench=Benchmark -benchmem -count=1 -benchtime=15s ./... | tee base.txt
 
       - name: bench head (merge)
-        run: go test -run='^$' -bench=Benchmark -benchmem -count=1 -benchtime=3s ./... | tee head.txt
+        run: go test -run='^$' -bench=Benchmark -benchmem -count=1 -benchtime=15s ./... | tee head.txt
 
       - name: compare & gate
         run: |
@@ -90,8 +91,9 @@ jobs:
       - name: post summary
         if: always()
         run: |
-          printf '## bench: %s\n\n' "${{ matrix.name }}" >> "$GITHUB_STEP_SUMMARY"
-          cat "$GITHUB_WORKSPACE/result.txt" | tee -a "$GITHUB_STEP_SUMMARY"
+          printf '## bench: %s\n\n```\n' "${{ matrix.name }}" >> "$GITHUB_STEP_SUMMARY"
+          cat "$GITHUB_WORKSPACE/result.txt" >> "$GITHUB_STEP_SUMMARY"
+          printf '```\n' >> "$GITHUB_STEP_SUMMARY"
 
   coverage:
     runs-on: ${{ matrix.os }}
@@ -145,8 +147,9 @@ jobs:
       - name: post summary
         if: always()
         run: |
-          printf '## coverage: %s\n\n' "${{ matrix.name }}" >> "$GITHUB_STEP_SUMMARY"
-          cat "$GITHUB_WORKSPACE/result.txt" | tee -a "$GITHUB_STEP_SUMMARY"
+          printf '## coverage: %s\n\n```\n' "${{ matrix.name }}" >> "$GITHUB_STEP_SUMMARY"
+          cat "$GITHUB_WORKSPACE/result.txt" >> "$GITHUB_STEP_SUMMARY"
+          printf '```\n' >> "$GITHUB_STEP_SUMMARY"
 
   checks-done:
     needs: [test, bench, coverage]

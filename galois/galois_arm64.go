@@ -5,13 +5,22 @@ package galois
 
 import (
 	"simd/archsimd"
+
+	"golang.org/x/sys/cpu"
 )
 
-func init() {
-	mulVect = mulVect_simd
-	mulXorVect = mulXorVect_simd
-	lastIndex = lastIndex_simd
-	xorVect = xorVect_simd
+func initialize() {
+	if cpu.ARM64.HasASIMD {
+		mulVect = mulVect_simd
+		mulXorVect = mulXorVect_simd
+		lastIndex = lastIndex_simd
+		xorVect = xorVect_simd
+	} else {
+		mulVect = mulVect_go
+		mulXorVect = mulXorVect_go
+		lastIndex = lastIndex_go
+		xorVect = xorVect_go
+	}
 }
 
 func maskToBits(m archsimd.Mask8x16) uint16 {

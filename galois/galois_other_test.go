@@ -4,66 +4,23 @@
 package galois
 
 import (
-	"fmt"
 	"testing"
 )
 
-func Test_Vect(t *testing.T) {
-	t.Run("go", func(t *testing.T) {
-		test_vect(t,
-			mulVect_go,
-			mulXorVect_go,
-			lastIndex_go,
-			xorVect_go,
-		)
-	})
+func Test_Vect_GO(t *testing.T) {
+	mulVect = mulVect_go
+	mulXorVect = mulXorVect_go
+	lastIndex = lastIndex_go
+	xorVect = xorVect_go
+
+	test_vect(t)
 }
 
-func Benchmark_mulVect_go(b *testing.B) {
-	for _, n := range benchSizes {
-		b.Run(fmt.Sprint(n), func(b *testing.B) {
-			i, o := make([]byte, n), make([]byte, n)
-			b.SetBytes(int64(n))
-			b.ResetTimer()
-			for range b.N {
-				mulVect_go(benchMulC, i, o)
-			}
-		})
-	}
-}
-func Benchmark_mulXorVect_go(b *testing.B) {
-	for _, n := range benchSizes {
-		b.Run(fmt.Sprint(n), func(b *testing.B) {
-			i, o := make([]byte, n), make([]byte, n)
-			b.SetBytes(int64(n))
-			b.ResetTimer()
-			for range b.N {
-				mulXorVect_go(benchMulC, i, o)
-			}
-		})
-	}
-}
-func Benchmark_xorVect_go(b *testing.B) {
-	for _, n := range benchSizes {
-		b.Run(fmt.Sprint(n), func(b *testing.B) {
-			i, o := make([]byte, n), make([]byte, n)
-			b.SetBytes(int64(n))
-			b.ResetTimer()
-			for range b.N {
-				xorVect_go(i, o)
-			}
-		})
-	}
-}
-func Benchmark_lastIndex_go(b *testing.B) {
-	for _, n := range benchSizes {
-		b.Run(fmt.Sprint(n), func(b *testing.B) {
-			s := make([]byte, n)
-			b.SetBytes(int64(n))
-			b.ResetTimer()
-			for range b.N {
-				lastIndex_go(s, searchByte)
-			}
-		})
-	}
+func Benchmark_Vect_GO(b *testing.B) {
+	mulVect = mulVect_go
+	mulXorVect = mulXorVect_go
+	lastIndex = lastIndex_go
+	xorVect = xorVect_go
+
+	bench_vect(b)
 }

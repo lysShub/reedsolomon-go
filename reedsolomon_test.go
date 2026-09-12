@@ -25,24 +25,24 @@ func deletes[T any](s []T, idxs ...int) []T {
 }
 
 func Test_Base(t *testing.T) {
-	t.Run("{2, 3} 丢失一个数据包", func(t *testing.T) {
+	t.Run("{2, 3} one data block lost", func(t *testing.T) {
 		var para = reedsolomon.Para{Groupsize: 3, Datasize: 2}
 
-		// 发送数据,  前两个为数据包, 最后一个为校验包
+		// data: first 2 data blocks, last 1 parity
 		var datas = make([][]byte, 2)
 		datas[0] = []byte{1, 2, 3, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 		datas[1] = []byte{4, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 		var parity = makes(1, len(datas[0]))
 
-		{ // 编码
+		{ // encode
 			reedsolomon.Encode(para, datas[0], 0, parity)
 			reedsolomon.Encode(para, datas[1], 1, parity)
 		}
 
 		var blocks = append(datas, parity...)
-		blocks = deletes(blocks, 1) // 丢失 datas[1]
+		blocks = deletes(blocks, 1) // lose datas[1]
 
-		{ // 恢复
+		{ // reconst
 			var reconst = makes(1, len(datas[0]))
 			n := reedsolomon.Reconst(para, blocks, []uint8{0, 2}, reconst)
 			if n != 1 {
@@ -54,7 +54,7 @@ func Test_Base(t *testing.T) {
 		}
 	})
 
-	t.Run("{3, 5} 丢失一个数据包", func(t *testing.T) {
+	t.Run("{3, 5} one data block lost", func(t *testing.T) {
 		var para = reedsolomon.Para{Groupsize: 5, Datasize: 3}
 
 		var datas = make([][]byte, 3)
@@ -63,16 +63,16 @@ func Test_Base(t *testing.T) {
 		datas[2] = []byte{2, 1, 6, 9}
 		var parity = makes(2, len(datas[0]))
 
-		{ // 编码
+		{ // encode
 			reedsolomon.Encode(para, datas[0], 0, parity)
 			reedsolomon.Encode(para, datas[1], 1, parity)
 			reedsolomon.Encode(para, datas[2], 2, parity)
 		}
 
 		var blocks = append(datas, parity...)
-		blocks = deletes(blocks, 1) // 丢失datas[1]
+		blocks = deletes(blocks, 1) // lose datas[1]
 
-		{ // 恢复
+		{ // reconst
 			var reconst = makes(1, len(datas[0]))
 			n := reedsolomon.Reconst(para, blocks, []uint8{1, 2, 3, 4}, reconst)
 			if n != 1 {
@@ -84,7 +84,7 @@ func Test_Base(t *testing.T) {
 		}
 	})
 
-	t.Run("{3, 5} 丢失一个数据包和一个校验包", func(t *testing.T) {
+	t.Run("{3, 5} one data and one parity lost", func(t *testing.T) {
 		var para = reedsolomon.Para{Groupsize: 5, Datasize: 3}
 
 		var datas = make([][]byte, 3)
@@ -93,7 +93,7 @@ func Test_Base(t *testing.T) {
 		datas[2] = []byte{2, 1, 6, 9}
 		var parity = makes(2, len(datas[0]))
 
-		{ // 编码
+		{ // encode
 			reedsolomon.Encode(para, datas[0], 0, parity)
 			reedsolomon.Encode(para, datas[1], 1, parity)
 			reedsolomon.Encode(para, datas[2], 2, parity)
@@ -102,7 +102,7 @@ func Test_Base(t *testing.T) {
 		var blocks = append(datas, parity...)
 		blocks = deletes(blocks, 1, 3)
 
-		{ // 恢复
+		{ // reconst
 			var reconst = makes(1, len(datas[0]))
 			n := reedsolomon.Reconst(para, blocks, []uint8{0, 2, 4}, reconst)
 			if n != 1 {
@@ -114,7 +114,7 @@ func Test_Base(t *testing.T) {
 		}
 	})
 
-	t.Run("{3, 5} 丢失两个paritysize", func(t *testing.T) {
+	t.Run("{3, 5} two parity blocks lost", func(t *testing.T) {
 		var para = reedsolomon.Para{Groupsize: 5, Datasize: 3}
 
 		var datas = make([][]byte, 3)
@@ -123,7 +123,7 @@ func Test_Base(t *testing.T) {
 		datas[2] = []byte{2, 1, 6, 9}
 		var parity = makes(2, len(datas[0]))
 
-		{ // 编码
+		{ // encode
 			reedsolomon.Encode(para, datas[0], 0, parity)
 			reedsolomon.Encode(para, datas[1], 1, parity)
 			reedsolomon.Encode(para, datas[2], 2, parity)
@@ -132,7 +132,7 @@ func Test_Base(t *testing.T) {
 		var blocks = append(datas, parity...)
 		blocks = deletes(blocks, 3, 4)
 
-		{ // 恢复
+		{ // reconst
 			var reconst = makes(1, len(datas[0]))
 			n := reedsolomon.Reconst(para, blocks, []uint8{0, 1, 2}, reconst)
 			if n != 0 {
@@ -144,19 +144,19 @@ func Test_Base(t *testing.T) {
 	t.Run("datasize ==  1", func(t *testing.T) {
 		var para = reedsolomon.Para{Groupsize: 3, Datasize: 1}
 
-		// 发送数据,  前一个为数据包, 最后两个为校验包
+		// data: first 1 data block, last 2 parity
 		var datas = make([][]byte, 1)
 		datas[0] = []byte{1, 2, 3, 4, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0}
 		var parity = makes(2, len(datas[0]))
 
-		{ // 编码
+		{ // encode
 			reedsolomon.Encode(para, datas[0], 0, parity)
 		}
 
 		var blocks = append(datas, parity...)
-		blocks = deletes(blocks, 0, 2) // 丢失 datas[0,2]
+		blocks = deletes(blocks, 0, 2) // lose datas[0,2]
 
-		{ // 恢复
+		{ // reconst
 			var reconst = makes(1, len(datas[0]))
 			n := reedsolomon.Reconst(para, blocks, []uint8{1}, reconst)
 			if n != 1 {
@@ -170,7 +170,7 @@ func Test_Base(t *testing.T) {
 }
 
 func Test_NotAlign(t *testing.T) {
-	// 测试非对其数据块进行编码与回复
+	// test encode/reconstruct with unaligned block lengths
 
 	var buildBlocks = func(datas [][]byte, parity [][]byte) [][]byte {
 		var blocks [][]byte
@@ -181,13 +181,13 @@ func Test_NotAlign(t *testing.T) {
 			size = max(size, len(e))
 		}
 		for _, e := range parity {
-			// 校验块长度等于最长数据块长度
+			// parity length = longest data length
 			blocks = append(blocks, slices.Clone(e[:size]))
 		}
 		return blocks
 	}
 
-	t.Run("{2, 3} block长度不一致1", func(t *testing.T) {
+	t.Run("{2, 3} block length mismatch 1", func(t *testing.T) {
 		var para = reedsolomon.Para{Groupsize: 3, Datasize: 2}
 		var datas = make([][]byte, 2)
 		datas[0] = []byte{1, 2, 3, 4}
@@ -214,7 +214,7 @@ func Test_NotAlign(t *testing.T) {
 		}
 	})
 
-	t.Run("{2, 3} block长度不一致2", func(t *testing.T) {
+	t.Run("{2, 3} block length mismatch 2", func(t *testing.T) {
 		var para = reedsolomon.Para{Groupsize: 3, Datasize: 2}
 		var datas = make([][]byte, 2)
 		datas[0] = []byte{1, 2, 3, 4}
@@ -241,7 +241,7 @@ func Test_NotAlign(t *testing.T) {
 		}
 	})
 
-	t.Run("{2, 3} 校验矩阵不为零值, 且datas[0]不是最长数据块", func(t *testing.T) {
+	t.Run("{2, 3} parity matrix nonzero, datas[0] not longest", func(t *testing.T) {
 		var para = reedsolomon.Para{Groupsize: 3, Datasize: 2}
 
 		var datas = make([][]byte, 2)
@@ -253,7 +253,7 @@ func Test_NotAlign(t *testing.T) {
 			rand.Read(e)
 		}
 		{
-			// 要求 parity[i][len(datas[0]):] 为零值
+			// require parity[i][len(datas[0]):] zero
 			for _, e := range parity {
 				clear(e[len(datas[0]):])
 			}
@@ -270,7 +270,7 @@ func Test_NotAlign(t *testing.T) {
 			for _, e := range reconst {
 				rand.Read(e)
 			}
-			// 要求 reconst[i][len(blocks[minidx]):] 为零值
+			// require reconst[i][len(blocks[0]):] zero
 			for _, e := range reconst {
 				clear(e[len(blocks[0]):])
 			}

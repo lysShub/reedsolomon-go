@@ -13,7 +13,7 @@ var (
 
 	// for vect calc, 64KB
 	mulTable [256][256]byte
-	// for sacel calc, 8KB
+	// for scal calc, 8KB
 	lohiTable [256]lohi
 )
 
@@ -28,12 +28,11 @@ func init() {
 	newMul(&mulTable)
 	newLohi(&mulTable, &lohiTable)
 }
-
-func newMul(dst *[256][256]byte) {
-	for a := range dst {
-		for b := range dst[a] {
+func newMul(mul *[256][256]byte) {
+	for a := range mul {
+		for b := range mul[a] {
 			if a == 0 || b == 0 {
-				dst[a][b] = 0
+				mul[a][b] = 0
 				continue
 			}
 			logA := int(logTable[a])
@@ -42,12 +41,11 @@ func newMul(dst *[256][256]byte) {
 			for logSum >= 255 {
 				logSum -= 255
 			}
-			dst[a][b] = expTable[logSum]
+			mul[a][b] = expTable[logSum]
 		}
 	}
 }
-
-func newLohi(mul *[256][256]byte, dst *[256]lohi) {
+func newLohi(mul *[256][256]byte, lohi *[256]lohi) {
 	for i := 0; i < 256; i++ {
 		for j := 0; j < 256; j++ {
 			var v byte
@@ -56,10 +54,10 @@ func newLohi(mul *[256][256]byte, dst *[256]lohi) {
 			}
 
 			if (j & 0x0f) == j {
-				dst[i].lo[j] = v
+				lohi[i].lo[j] = v
 			}
 			if (j & 0xf0) == j {
-				dst[i].hi[j>>4] = v
+				lohi[i].hi[j>>4] = v
 			}
 		}
 	}
