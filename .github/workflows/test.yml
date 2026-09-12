@@ -98,7 +98,7 @@ jobs:
 
       - name: ci bench
         working-directory: merge/.github/ci
-        run: go run . bench --master ../../../master --merge ../.. --name "${{ matrix.name }}" --max-retry 3
+        run: go run . bench --master ../../../master --merge ../.. --name "${{ matrix.name }}" --max-retry 3 --benchtime 3s
 
   checks-done:
     needs: [test, bench]
