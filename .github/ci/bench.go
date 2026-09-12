@@ -21,16 +21,18 @@ func runBench(masterDir, mergeDir, name, benchtime string, threshold float64, ma
 	args := []string{"test", "-run=^$", "-bench=Benchmark", "-benchmem", "-count=1", "-benchtime=" + benchtime, "./..."}
 
 	for attempt := 0; attempt <= maxRetry; attempt++ {
-		fmt.Println()
-		fmt.Println()
-		fmt.Printf("::group::bench attempt %d/%d\n", attempt+1, maxRetry+1)
-
 		var (
 			body string
 			over []string
 			pass bool
 		)
-		ok := func() bool {
+
+		if ok := func() bool {
+			fmt.Println()
+			fmt.Println()
+			fmt.Printf("::group::bench attempt %d/%d\n", attempt+1, maxRetry+1)
+			defer fmt.Println("::endgroup::")
+
 			if err := runToFile(masterDir, masterTxt, "go", args...); err != nil {
 				fmt.Fprintf(os.Stderr, "bench master failed: %v\n", err)
 				return false
@@ -48,17 +50,12 @@ func runBench(masterDir, mergeDir, name, benchtime string, threshold float64, ma
 				}
 			}
 			return true
-		}()
-		fmt.Println("::endgroup::")
-		if !ok {
+		}(); !ok {
 			return false
 		}
 
-		if len(over) > 0 {
-			body += "\nover threshold:\n" + strings.Join(over, "")
-		}
-		emit("bench", fmt.Sprintf("%s (try %d/%d)", name, attempt+1, maxRetry+1), body)
 		if pass {
+			emit("bench", name, body)
 			return true
 		}
 	}
