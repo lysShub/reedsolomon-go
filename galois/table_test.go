@@ -17,6 +17,9 @@ import (
 )
 
 func Test_generate(t *testing.T) {
+	t.Skip("deprecated")
+	//go:generate go test -count=1 -run Test_generate -args generate
+
 	var mul [256][256]byte
 	var lohi [256]lohi
 
