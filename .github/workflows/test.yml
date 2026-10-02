@@ -74,9 +74,11 @@ jobs:
           - name: amd64
             os: ubuntu-latest
             goarch: amd64
+            threshold: -10
           - name: arm64
             os: macos-latest
             goarch: arm64
+            threshold: -20
     defaults:
       run:
         shell: bash -eo pipefail {0}
@@ -96,9 +98,9 @@ jobs:
             merge/go.sum
             merge/.github/ci/go.sum
 
-      - name: ci bench
+      - name: bench
         working-directory: merge/.github/ci
-        run: go run . bench --master ../../../master --merge ../.. --name "${{ matrix.name }}" --max-retry 3 --benchtime 3s
+        run: go run . bench --master ../../../master --merge ../.. --name "${{ matrix.name }}" --max-retry 3 --benchtime 3s --threshold=${{ matrix.threshold }}
 
   checks-done:
     needs: [test, bench]
