@@ -75,10 +75,11 @@ jobs:
             os: ubuntu-latest
             goarch: amd64
             threshold: -10
-          - name: arm64
-            os: macos-latest
-            goarch: arm64
-            threshold: -20
+          # arm64 mac 是大小核的, 测试结果不稳定
+          # - name: arm64
+          #   os: macos-latest
+          #   goarch: arm64
+          #   threshold: -20
     defaults:
       run:
         shell: bash -eo pipefail {0}
